@@ -1,0 +1,27 @@
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# JavaScript dependencies
+node_modules/
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local database and runtime logs
+ki23_eval.db
+server_output.txt
+server_error.txt
+
+# Source spreadsheets contain participant/staff information and passwords
+*.xlsx
+
+# Office lock files
+~$*
+
+# Editor workspace settings
+.vscode/

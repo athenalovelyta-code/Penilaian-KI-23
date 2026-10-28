@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Penilaian Acara KI23 - Role-Based Access Control</title>
+  <meta name="description" content="Sistem Informasi Penilaian Acara KI23 berbasis RBAC, mengelola data peserta Kelas Profesi dan Kelompok Tabmin dengan rekapitulasi nilai dan export Excel.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- Top Demo / Quick Role Switcher Banner -->
+  <div class="demo-bar" id="demo-bar">
+    <div class="demo-bar-left">
+      <span class="demo-pill"><i class="fas fa-shield-alt"></i> RBAC Active</span>
+      <span>Simulasi Multi-Role KI23:</span>
+    </div>
+    <div class="demo-bar-actions">
+      <select id="demo-user-select" class="demo-select" onchange="App.switchUser(this.value)">
+        <!-- Populated dynamically by App.loadDemoUsers() -->
+      </select>
+    </div>
+  </div>
+
+  <!-- Header & Navigation -->
+  <header class="app-header">
+    <div class="nav-container">
+      <div class="brand" onclick="App.setupView()">
+        <div class="brand-icon">KI</div>
+        <div>
+          <div class="brand-title">Sistem Penilaian KI23</div>
+          <div class="brand-subtitle">Korpus Institute - Event Evaluation Portal</div>
+        </div>
+      </div>
+
+      <!-- Nav links depending on role -->
+      <nav class="nav-menu" id="nav-menu-links">
+        <!-- Rendered by App.renderNavbar() -->
+      </nav>
+
+      <!-- User Profile Badge -->
+      <div class="user-badge" id="current-user-badge" onclick="if(App.currentUser) App.logout()" title="Klik untuk keluar / ganti nama pengguna" style="cursor: pointer;">
+        <div class="user-avatar" id="navbar-user-avatar">KI</div>
+        <div class="user-details">
+          <div class="user-name" id="navbar-user-name">Belum Masuk</div>
+          <div class="user-role-label" id="navbar-user-role">Ketik nama Anda di portal</div>
+        </div>
+        <i class="fas fa-sign-out-alt" style="font-size: 0.85rem; color: #fca5a5; margin-left: 8px;" title="Keluar / Ganti Nama"></i>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="main-wrapper">
+    <div id="view-content">
+      <!-- Views are loaded here -->
+    </div>
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Client Scripts -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/gateway.js"></script>
+  <script src="/static/js/admin_panel.js"></script>
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/form_profesi.js"></script>
+  <script src="/static/js/form_wali.js"></script>
+  <script src="/static/js/form_tabmin.js"></script>
+  <script src="/static/js/form_peer.js"></script>
+  <script src="/static/js/app.js"></script>
+
+</body>
+</html>
+
