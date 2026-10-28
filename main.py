@@ -18,10 +18,14 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize database & seed on start
-    print("Initializing KI23 Evaluation System database...")
-    init_db()
-    seed_database(seed_sample_scores=True)
+    # Diberikan try-except agar jika pembuatan DB/Excel gagal di serverless Vercel, 
+    # server FastAPI tetap bisa berjalan tanpa crash 500
+    try:
+        print("Initializing KI23 Evaluation System database...")
+        init_db()
+        seed_database(seed_sample_scores=True)
+    except Exception as e:
+        print(f"Warning: Database initialization skipped/failed: {e}")
     yield
     print("Shutting down KI23 Evaluation System...")
 
@@ -47,12 +51,9 @@ app.include_router(eval_router)
 app.include_router(recap_router)
 app.include_router(admin_router)
 
-
-# Mount static directory if exists
-if not os.path.exists(STATIC_DIR):
-    os.makedirs(STATIC_DIR)
-
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# Mount static directory jika folder tersedia
+if os.path.exists(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/")
 def serve_index():
