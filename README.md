@@ -6,10 +6,10 @@ Aplikasi web modern berbasis Python FastAPI untuk mengelola penilaian peserta ac
 
 ## 🚀 Fitur Utama & Pembagian Peran
 
-### 1. Portal Masuk Awal Berbasis Nama Lengkap
-- Pada halaman utama website, setiap pengguna (baik Panitia maupun Peserta) langsung diminta untuk **menuliskan nama lengkap mereka**.
-- **Pencarian Cerdas & Autocomplete**: Mendukung pencarian instan case-insensitive, toleran spasi dan tanda baca, serta menampilkan saran otomatis lengkap dengan label peran.
-- Pengguna langsung diarahkan secara otomatis ke halaman yang sesuai dengan hak akses perannya.
+### 1. Portal Masuk Panitia dan Peserta
+- Panitia masuk menggunakan password sesuai jabatan; peserta menggunakan password, profesi, dan kelompok Tabmin yang sesuai.
+- Setelah berhasil masuk, pengguna diarahkan ke halaman sesuai hak aksesnya.
+- Untuk berganti akun, pengguna harus keluar lalu masuk kembali dengan kredensial akun yang benar.
 
 ---
 
@@ -38,8 +38,11 @@ Aplikasi web modern berbasis Python FastAPI untuk mengelola penilaian peserta ac
 
 ### 3. Akses Peserta KI23 (Anggota Kelompok Tabmin)
 - Diambil dari berkas **Pengumuman Tahap I KI** (111 Peserta, 5 Divisi Profesi) dan **Kelompok Tabmin** (6 Kelompok).
+- Peserta wajib masuk melalui portal menggunakan password, profesi, dan kelompok yang sesuai; memilih nama dari daftar bukan metode login.
 - **Kerahasiaan Mutlak**: Peserta **hanya bisa melakukan penilaian (Peer Review)** untuk teman satu kelompok Tabmin mereka sendiri (tidak bisa menilai diri sendiri).
 - Peserta **tidak dapat melihat hasil penilaian lain** (tidak ada akses ke nilai HRD, nilai PJK, nilai teman lain, maupun dashboard rekapitulasi).
+- Peralihan akun demo tanpa autentikasi dan login peserta hanya dengan memilih nama telah dihapus.
+- Setelah pembaruan keamanan ini dideploy, sesi lama dicabut satu kali dan sesi yang dibuat oleh versi lama ditolak; pengguna perlu masuk kembali.
 
 ---
 

@@ -1,11 +1,9 @@
 // Form Peer Review Module for Peserta Korpus Institute
-// Quick form entry, teammate review with strict confidentiality
+// Authenticated participant review with strict confidentiality
 
 const FormPeer = {
-  step: 'select_identity', // 'select_identity' or 'evaluate'
-  selectedGroup: 'Kelompok 1',
+  selectedGroup: null,
   selectedParticipantId: null,
-  groupParticipants: [],
   teammates: [],
   activeTeammateIndex: 0,
 
@@ -20,27 +18,14 @@ const FormPeer = {
 
   async init() {
     const user = App.currentUser;
-    if (user && user.role === 'peserta') {
-      this.selectedGroup = user.assigned_group;
-      this.selectedParticipantId = user.participant_id;
-      this.step = 'evaluate';
-      await this.loadTeammates();
-    } else {
-      await this.loadGroupParticipants();
+    if (!user || user.role !== 'peserta' || !user.participant_id) {
+      App.navigate('gateway');
+      return;
     }
+    this.selectedGroup = user.assigned_group;
+    this.selectedParticipantId = user.participant_id;
+    await this.loadTeammates();
     this.render();
-  },
-
-  async loadGroupParticipants() {
-    try {
-      const res = await API.get(`/api/eval/participants?group=${encodeURIComponent(this.selectedGroup)}`);
-      this.groupParticipants = res.participants || [];
-      if (this.groupParticipants.length && !this.selectedParticipantId) {
-        this.selectedParticipantId = this.groupParticipants[0].id;
-      }
-    } catch (err) {
-      console.error(err);
-    }
   },
 
   async loadTeammates() {
@@ -61,51 +46,7 @@ const FormPeer = {
     const container = document.getElementById('view-content');
     if (!container) return;
 
-    if (this.step === 'select_identity') {
-      this.renderIdentitySelector(container);
-    } else {
-      this.renderEvaluationForm(container);
-    }
-  },
-
-  renderIdentitySelector(container) {
-    container.innerHTML = `
-      <div style="max-width: 600px; margin: 30px auto;" class="glass-card">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <div class="brand-icon" style="margin: 0 auto 16px; width: 56px; height: 56px; font-size: 1.6rem;">KI</div>
-          <h2 style="font-size: 1.5rem; color: white;">Quick Peer Review Peserta</h2>
-          <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 6px;">
-            Pilih Asal Kelompok Tabmin dan Nama Anda untuk mulai menilai rekan satu kelompok secara objektif dan rahasia.
-          </p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <label style="font-weight: 600; font-size: 0.9rem; color: white; display: block; margin-bottom: 8px;">1. Pilih Asal Kelompok Tabmin</label>
-          <select class="custom-select" style="width: 100%;" onchange="FormPeer.onSelectGroup(this.value)">
-            ${['Kelompok 1', 'Kelompok 2', 'Kelompok 3', 'Kelompok 4', 'Kelompok 5', 'Kelompok 6'].map(g => `
-              <option value="${g}" ${this.selectedGroup === g ? 'selected' : ''}>${g}</option>
-            `).join('')}
-          </select>
-        </div>
-
-        <div style="margin-bottom: 28px;">
-          <label style="font-weight: 600; font-size: 0.9rem; color: white; display: block; margin-bottom: 8px;">2. Pilih Nama Anda</label>
-          <select class="custom-select" style="width: 100%;" id="peer-participant-select" onchange="FormPeer.selectedParticipantId = parseInt(this.value)">
-            ${this.groupParticipants.map(p => `
-              <option value="${p.id}" ${this.selectedParticipantId === p.id ? 'selected' : ''}>${p.name} (${p.profession})</option>
-            `).join('')}
-          </select>
-        </div>
-
-        <button class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;" onclick="FormPeer.proceedToEvaluate()">
-          <i class="fas fa-arrow-right"></i> Masuk & Mulai Penilaian Teman
-        </button>
-
-        <div style="margin-top: 18px; text-align: center; font-size: 0.8rem; color: var(--text-dim);">
-          <i class="fas fa-lock"></i> Kerahasiaan Terjamin: Ulasan Anda bersifat anonim antar peserta.
-        </div>
-      </div>
-    `;
+    this.renderEvaluationForm(container);
   },
 
   renderEvaluationForm(container) {
@@ -266,36 +207,6 @@ const FormPeer = {
       this.activeTeammateIndex += 1;
       this.scores = { kehadiran: 5, partisipasi: 5, sikap: 5, notes: '' };
       this.render();
-    }
-  },
-
-  async onSelectGroup(group) {
-    this.selectedGroup = group;
-    await this.loadGroupParticipants();
-    this.render();
-  },
-
-  async proceedToEvaluate() {
-    if (!this.selectedParticipantId) {
-      showToast('Silakan pilih nama Anda terlebih dahulu.', 'warning');
-      return;
-    }
-
-    try {
-      // Login as participant
-      const res = await API.post('/api/auth/quick-participant', {
-        participant_id: this.selectedParticipantId
-      });
-      localStorage.setItem('ki23_token', res.token);
-      App.currentUser = res.user;
-      App.renderNavbar();
-
-      this.step = 'evaluate';
-      await this.loadTeammates();
-      this.render();
-      showToast(`Selamat datang, ${res.user.full_name}!`, 'success');
-    } catch (err) {
-      showToast(err.message, 'error');
     }
   },
 

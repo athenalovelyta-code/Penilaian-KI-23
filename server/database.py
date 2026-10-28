@@ -289,8 +289,23 @@ def init_db():
         CREATE TABLE IF NOT EXISTS sessions (
             session_token TEXT PRIMARY KEY,
             user_data TEXT NOT NULL,
+            auth_method TEXT NOT NULL DEFAULT 'legacy',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        """)
+        cursor.execute("PRAGMA table_info(sessions)")
+        session_cols = [col["name"] for col in cursor.fetchall()]
+        if "auth_method" not in session_cols:
+            cursor.execute(
+                "ALTER TABLE sessions ADD COLUMN auth_method TEXT NOT NULL DEFAULT 'legacy'"
+            )
+        cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS reject_legacy_session_issuance
+        BEFORE INSERT ON sessions
+        WHEN NEW.auth_method != 'password'
+        BEGIN
+            SELECT RAISE(ABORT, 'Session creation requires password authentication');
+        END;
         """)
         
         print("Database schema successfully initialized.")

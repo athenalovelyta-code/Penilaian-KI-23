@@ -3,76 +3,10 @@
 const App = {
   currentUser: null,
   activeView: 'gateway', // 'gateway', 'admin', 'recap', 'profesi', 'tabmin', 'wali', 'peer'
-  demoUsers: [],
 
   async init() {
-    await this.loadDemoUsers();
     await this.restoreSession();
     this.setupView();
-  },
-
-  async loadDemoUsers() {
-    try {
-      const res = await API.get('/api/auth/demo-users');
-      this.demoUsers = res.users || [];
-      this.renderDemoSelector();
-    } catch (err) {
-      console.error('Error loading demo users:', err);
-    }
-  },
-
-  renderDemoSelector() {
-    const sel = document.getElementById('demo-user-select');
-    if (!sel) return;
-
-    const optGroups = {
-      'Teknisi (Super Admin)': [],
-      'Kepala Sekolah & Wakil': [],
-      'Kepala HRD': [],
-      'HRD Profesi & Kelompok': [],
-      'Wali Kelas (5 Divisi)': [],
-      'Penanggung Jawab Kelompok (PJK)': [],
-      'Peserta': []
-    };
-
-    this.demoUsers.forEach(u => {
-      if (u.role === 'teknisi') {
-        optGroups['Teknisi (Super Admin)'].push(u);
-      } else if (u.role === 'kepala_sekolah' || u.role === 'wakil_kepala' || u.role === 'supervisor') {
-        optGroups['Kepala Sekolah & Wakil'].push(u);
-      } else if (u.role === 'hrd_kepala') {
-        optGroups['Kepala HRD'].push(u);
-      } else if (u.role.startsWith('hrd')) {
-        optGroups['HRD Profesi & Kelompok'].push(u);
-      } else if (u.role === 'wali_kelas') {
-        optGroups['Wali Kelas (5 Divisi)'].push(u);
-      } else if (u.role === 'pjk') {
-        optGroups['Penanggung Jawab Kelompok (PJK)'].push(u);
-      }
-    });
-
-    let html = '<option value="" disabled selected>-- Pilih Akun Simulasi Cepat --</option>';
-    for (const [groupName, users] of Object.entries(optGroups)) {
-      if (users.length) {
-        html += `<optgroup label="${groupName}">`;
-        users.forEach(u => {
-          const isSelected = this.currentUser && this.currentUser.username === u.username ? 'selected' : '';
-          const subtitle = u.assigned_profession ? ` (${u.assigned_profession})` : (u.assigned_group ? ` (${u.assigned_group})` : '');
-          html += `<option value="${u.username}" ${isSelected}>${u.full_name}${subtitle}</option>`;
-        });
-        html += `</optgroup>`;
-      }
-    }
-    // Add Peserta Quick Entry option
-    html += `
-      <optgroup label="Peserta (Anggota Tabmin)">
-        <option value="peserta_quick" ${this.currentUser?.role === 'peserta' ? 'selected' : ''}>
-          Peserta (Quick Form Entry)
-        </option>
-      </optgroup>
-    `;
-
-    sel.innerHTML = html;
   },
 
   async restoreSession() {
@@ -90,39 +24,6 @@ const App = {
     }
 
     this.renderNavbar();
-    this.renderDemoSelector();
-  },
-
-  async switchUser(username) {
-    if (!username) return;
-
-    if (username === 'peserta_quick') {
-      this.currentUser = {
-        role: 'peserta',
-        full_name: 'Peserta Mode (Quick Entry)',
-        username: 'peserta',
-        assigned_group: 'Kelompok 1'
-      };
-      localStorage.removeItem('ki23_token');
-      this.renderNavbar();
-      this.renderDemoSelector();
-      this.navigate('peer');
-      showToast('Beralih ke mode Peserta (Quick Form Entry)', 'info');
-      return;
-    }
-
-    try {
-      const res = await API.post('/api/auth/switch-demo', { username });
-      localStorage.setItem('ki23_token', res.token);
-      this.currentUser = res.user;
-      this.renderNavbar();
-      this.renderDemoSelector();
-      
-      this.setupView();
-      showToast(`Beralih akun ke: ${res.user.full_name}`, 'success');
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
   },
 
   async logout() {
@@ -134,7 +35,6 @@ const App = {
     localStorage.removeItem('ki23_token');
     this.currentUser = null;
     this.renderNavbar();
-    this.renderDemoSelector();
     this.navigate('gateway');
     showToast('Sesi berakhir. Silakan login kembali di portal.', 'info');
   },
@@ -300,6 +200,10 @@ const App = {
   },
 
   navigate(viewName) {
+    if (!this.currentUser && viewName !== 'gateway') {
+      viewName = 'gateway';
+    }
+
     if (this.currentUser) {
       const roleViews = {
         teknisi: ['admin', 'recap', 'profesi', 'tabmin'],

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from server.database import init_db, is_remote_database_configured
+from server.auth import revoke_sessions_from_insecure_login_flows
 from server.seeder import seed_database
 from server.routes_auth import router as auth_router
 from server.routes_eval import router as eval_router
@@ -20,6 +21,7 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 async def lifespan(app: FastAPI):
     print("Initializing KI23 Evaluation System database...")
     init_db()
+    revoke_sessions_from_insecure_login_flows()
     if not is_remote_database_configured() and not os.environ.get("VERCEL"):
         seed_database(seed_sample_scores=True)
     yield

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from pydantic import BaseModel
 from typing import Optional
 from server.database import get_db
-from server.auth import hash_pw, create_session, delete_session, get_current_user
+from server.auth import hash_pw, create_session, delete_session, get_current_user, require_roles
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -18,12 +18,6 @@ class LoginPesertaRequest(BaseModel):
     profession: str     # 'Ilustrator', 'Fotografer', 'Layouter', 'Marcomm', 'Reporter'
     tabmin_group: str   # 'Kelompok 1' to 'Kelompok 6'
     password: str
-
-class ParticipantQuickLogin(BaseModel):
-    participant_id: int
-
-class SwitchDemoRequest(BaseModel):
-    username: str
 
 @router.post("/login-panitia")
 def login_panitia(req: LoginPanitiaRequest, response: Response):
@@ -47,6 +41,15 @@ def login_panitia(req: LoginPanitiaRequest, response: Response):
 
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) AS total FROM users WHERE role != 'peserta'")
+        if cursor.fetchone()["total"] == 0:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Database belum berisi akun panitia. Migrasikan data dari "
+                    "ki23_eval.db lokal ke database Turso, lalu coba lagi."
+                ),
+            )
         cursor.execute("SELECT * FROM users WHERE role != 'peserta'")
         panitia_users = cursor.fetchall()
         
@@ -136,6 +139,15 @@ def login_peserta(req: LoginPesertaRequest, response: Response):
 
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) AS total FROM participants")
+        if cursor.fetchone()["total"] == 0:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Database belum berisi data peserta. Migrasikan data dari "
+                    "ki23_eval.db lokal ke database Turso, lalu coba lagi."
+                ),
+            )
         cursor.execute("SELECT * FROM participants WHERE LOWER(TRIM(profession)) = LOWER(?) AND LOWER(TRIM(tabmin_group)) = LOWER(?)", (prof, grp))
         group_participants = cursor.fetchall()
 
@@ -203,49 +215,6 @@ def login(req: LoginRequest, response: Response):
         response.set_cookie(key="session_token", value=token, httponly=False, samesite="lax")
         return {"success": True, "token": token, "user": user_data}
 
-@router.post("/quick-participant")
-def quick_participant_login(req: ParticipantQuickLogin, response: Response):
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM participants WHERE id = ?", (req.participant_id,))
-        p = cursor.fetchone()
-        if not p:
-            raise HTTPException(status_code=404, detail="Peserta tidak ditemukan.")
-            
-        user_data = {
-            "id": f"p_{p['id']}",
-            "participant_id": p["id"],
-            "username": f"peserta_{p['id']}",
-            "full_name": p["name"],
-            "role": "peserta",
-            "assigned_group": p["tabmin_group"],
-            "assigned_profession": p["profession"],
-        }
-        token = create_session(user_data)
-        response.set_cookie(key="session_token", value=token, httponly=False, samesite="lax")
-        return {"success": True, "token": token, "user": user_data}
-
-@router.post("/switch-demo")
-def switch_demo_user(req: SwitchDemoRequest, response: Response):
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", (req.username.strip(),))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="Demo user tidak ditemukan.")
-            
-        user_data = {
-            "id": user["id"],
-            "username": user["username"],
-            "full_name": user["full_name"],
-            "role": user["role"],
-            "assigned_group": user["assigned_group"],
-            "assigned_profession": user["assigned_profession"],
-        }
-        token = create_session(user_data)
-        response.set_cookie(key="session_token", value=token, httponly=False, samesite="lax")
-        return {"success": True, "token": token, "user": user_data}
-
 @router.get("/me")
 def get_me(user: dict = Depends(get_current_user)):
     return {"user": user}
@@ -263,115 +232,8 @@ def logout(request: Request, response: Response, _: dict = Depends(get_current_u
     response.delete_cookie("session_token")
     return {"success": True, "message": "Berhasil logout"}
 
-class LookupNameRequest(BaseModel):
-    name: str
-
-def norm_name_str(s):
-    import re
-    return re.sub(r'[^a-zA-Z0-9]', '', str(s).lower())
-
-@router.post("/lookup-name")
-def lookup_name(req: LookupNameRequest, response: Response):
-    raw_name = req.name.strip()
-    if not raw_name:
-        raise HTTPException(status_code=400, detail="Nama lengkap tidak boleh kosong.")
-        
-    norm_input = norm_name_str(raw_name)
-    if len(norm_input) < 2:
-        raise HTTPException(status_code=400, detail="Harap masukkan nama lengkap Anda.")
-
-    with get_db() as conn:
-        cursor = conn.cursor()
-        
-        # 1. Search in USERS table first (Panitia: Teknisi, Kepala Sekolah, HRD, Wali Kelas, PJK)
-        cursor.execute("SELECT * FROM users WHERE LOWER(TRIM(full_name)) = LOWER(?) OR LOWER(TRIM(username)) = LOWER(?)", 
-                       (raw_name, raw_name))
-        u = cursor.fetchone()
-
-        if not u:
-            cursor.execute("SELECT * FROM users WHERE role != 'peserta'")
-            all_users = cursor.fetchall()
-            for candidate in all_users:
-                if norm_name_str(candidate["full_name"]) == norm_input or norm_name_str(candidate["username"]) == norm_input:
-                    u = candidate
-                    break
-
-        if u:
-            user_data = {
-                "id": u["id"],
-                "username": u["username"],
-                "full_name": u["full_name"],
-                "role": u["role"],
-                "assigned_group": u["assigned_group"],
-                "assigned_profession": u["assigned_profession"],
-                "is_panitia": True
-            }
-            token = create_session(user_data)
-            response.set_cookie(key="session_token", value=token, httponly=False, samesite="lax")
-            return {
-                "success": True,
-                "token": token,
-                "user": user_data,
-                "type": "panitia",
-                "message": f"Selamat datang, {u['full_name']}! Masuk sebagai {u['role']}."
-            }
-
-        # 2. Search in PARTICIPANTS table (Peserta Korpus Institute)
-        cursor.execute("SELECT * FROM participants WHERE LOWER(TRIM(name)) = LOWER(?)", (raw_name,))
-        p = cursor.fetchone()
-        
-        if not p:
-            cursor.execute("SELECT * FROM participants")
-            all_p = cursor.fetchall()
-            for candidate in all_p:
-                if norm_name_str(candidate["name"]) == norm_input:
-                    p = candidate
-                    break
-
-        if p:
-            user_data = {
-                "id": f"p_{p['id']}",
-                "participant_id": p["id"],
-                "username": f"peserta_{p['id']}",
-                "full_name": p["name"],
-                "role": "peserta",
-                "assigned_group": p["tabmin_group"],
-                "assigned_profession": p["profession"],
-                "is_panitia": False
-            }
-            token = create_session(user_data)
-            response.set_cookie(key="session_token", value=token, httponly=False, samesite="lax")
-            return {
-                "success": True,
-                "token": token,
-                "user": user_data,
-                "participant": p,
-                "type": "peserta",
-                "message": f"Selamat datang, {p['name']}! Masuk ke sesi {p['tabmin_group']} - Divisi {p['profession']}."
-            }
-
-        # 3. Not found: Look for partial matches to provide smart hints
-        cursor.execute("SELECT full_name as name, role as category FROM users WHERE LOWER(full_name) LIKE ? LIMIT 3", (f"%{raw_name.lower()}%",))
-        partial_users = cursor.fetchall()
-
-        cursor.execute("SELECT name, profession as category FROM participants WHERE LOWER(name) LIKE ? LIMIT 3", (f"%{raw_name.lower()}%",))
-        partial_p = cursor.fetchall()
-
-        all_partials = partial_users + partial_p
-        if all_partials:
-            hints = ", ".join([f"'{m['name']}'" for m in all_partials[:4]])
-            raise HTTPException(
-                status_code=400,
-                detail=f"Nama '{raw_name}' tidak ditemukan secara persis. Apakah maksud Anda: {hints}?"
-            )
-
-        raise HTTPException(
-            status_code=404,
-            detail=f"Nama lengkap '{raw_name}' tidak ditemukan dalam daftar Panitia maupun Peserta KI23. Pastikan penulisan sesuai dengan berkas Pengumuman Tahap I atau Daftar Panitia."
-        )
-
 @router.get("/search-names")
-def search_names(q: Optional[str] = ""):
+def search_names(q: Optional[str] = "", _: dict = Depends(require_roles(["teknisi"]))):
     query_str = (q or "").strip().lower()
     if not query_str or len(query_str) < 2:
         return {"results": []}
@@ -433,7 +295,7 @@ def search_names(q: Optional[str] = ""):
     return {"results": results}
 
 @router.get("/panitia-list")
-def get_panitia_list():
+def get_panitia_list(_: dict = Depends(require_roles(["teknisi"]))):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -458,29 +320,3 @@ def get_panitia_list():
         """)
         users = cursor.fetchall()
         return {"panitia": users}
-
-@router.get("/demo-users")
-def get_demo_users():
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, username, full_name, role, assigned_group, assigned_profession
-            FROM users
-            ORDER BY 
-                CASE role
-                    WHEN 'teknisi' THEN 0
-                    WHEN 'kepala_sekolah' THEN 1
-                    WHEN 'wakil_kepala' THEN 2
-                    WHEN 'supervisor' THEN 3
-                    WHEN 'hrd_kepala' THEN 4
-                    WHEN 'hrd_kelompok_ketua' THEN 5
-                    WHEN 'hrd_profesi' THEN 6
-                    WHEN 'hrd_kelompok' THEN 7
-                    WHEN 'hrd_all' THEN 8
-                    WHEN 'wali_kelas' THEN 9
-                    WHEN 'pjk' THEN 10
-                    ELSE 11
-                END, full_name
-        """)
-        users = cursor.fetchall()
-        return {"users": users}

@@ -438,7 +438,6 @@ const AdminPanel = {
       this.closeModal();
       await this.loadStaff();
       this.render();
-      App.loadDemoUsers();
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -551,7 +550,6 @@ const AdminPanel = {
       this.closeModal();
       await this.loadStaff();
       this.render();
-      App.loadDemoUsers();
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -569,7 +567,6 @@ const AdminPanel = {
       showToast(res.message, 'success');
       await this.loadStaff();
       this.render();
-      App.loadDemoUsers();
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -585,7 +582,6 @@ const AdminPanel = {
       showToast(res.message, 'success');
       await this.loadStaff();
       this.render();
-      App.loadDemoUsers();
     } catch (err) {
       showToast(err.message, 'error');
     }

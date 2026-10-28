@@ -118,7 +118,6 @@ const Gateway = {
       localStorage.setItem('ki23_token', res.token);
       App.currentUser = res.user;
       App.renderNavbar();
-      App.renderDemoSelector();
 
       const user = res.user;
       showToast(res.message || `Selamat datang, ${user.full_name}!`, 'success');
@@ -172,7 +171,6 @@ const Gateway = {
       localStorage.setItem('ki23_token', res.token);
       App.currentUser = res.user;
       App.renderNavbar();
-      App.renderDemoSelector();
 
       showToast(res.message || `Selamat datang, ${res.user.full_name}! Masuk ke form Peer Review.`, 'success');
 
