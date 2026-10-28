@@ -2,20 +2,115 @@ import sqlite3
 import os
 from contextlib import contextmanager
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ki23_eval.db")
+DB_PATH = os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ki23_eval.db"),
+)
 
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
+
+def is_remote_database_configured():
+    return bool(os.environ.get("TURSO_DATABASE_URL"))
+
+
+def _connect_database():
+    database_url = os.environ.get("TURSO_DATABASE_URL")
+    if database_url:
+        auth_token = os.environ.get("TURSO_AUTH_TOKEN")
+        if not auth_token:
+            raise RuntimeError("TURSO_AUTH_TOKEN must be configured when using Turso.")
+        try:
+            import turso_serverless
+        except ImportError as exc:
+            raise RuntimeError(
+                "The turso-serverless package is required for the configured Turso database."
+            ) from exc
+        return turso_serverless.connect(database_url, auth_token=auth_token)
+
+    if os.environ.get("VERCEL"):
+        raise RuntimeError(
+            "A persistent database is required on Vercel. Configure "
+            "TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in the Vercel project settings."
+        )
+
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
+
+
+def _row_as_dict(cursor, row):
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row
+    if hasattr(row, "keys"):
+        return {key: row[key] for key in row.keys()}
+
+    columns = cursor.description or ()
+    names = [
+        column.name if hasattr(column, "name") else column[0]
+        for column in columns
+    ]
+    return dict(zip(names, row))
+
+
+class _Cursor:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    @property
+    def description(self):
+        return self._cursor.description
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    @property
+    def lastrowid(self):
+        return self._cursor.lastrowid
+
+    def execute(self, query, parameters=()):
+        self._cursor.execute(query, parameters)
+        return self
+
+    def executemany(self, query, parameters):
+        self._cursor.executemany(query, parameters)
+        return self
+
+    def fetchone(self):
+        return _row_as_dict(self._cursor, self._cursor.fetchone())
+
+    def fetchall(self):
+        return [_row_as_dict(self._cursor, row) for row in self._cursor.fetchall()]
+
+    def __iter__(self):
+        for row in self._cursor:
+            yield _row_as_dict(self._cursor, row)
+
+
+class _Connection:
+    def __init__(self, connection):
+        self._connection = connection
+
+    def cursor(self):
+        return _Cursor(self._connection.cursor())
+
+    def execute(self, query, parameters=()):
+        return _Cursor(self._connection.execute(query, parameters))
+
+    def commit(self):
+        self._connection.commit()
+
+    def rollback(self):
+        self._connection.rollback()
+
+    def close(self):
+        self._connection.close()
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = dict_factory
-    conn.execute("PRAGMA foreign_keys = ON;")
+    raw_conn = _connect_database()
+    conn = _Connection(raw_conn)
     try:
+        conn.execute("PRAGMA foreign_keys = ON;")
         yield conn
         conn.commit()
     except Exception:
@@ -187,6 +282,14 @@ def init_db():
             action TEXT NOT NULL,
             details TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_token TEXT PRIMARY KEY,
+            user_data TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         """)
         

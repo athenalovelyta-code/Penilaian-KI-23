@@ -1,6 +1,6 @@
 # Sistem Penilaian Acara KI23 (Role-Based Access Control)
 
-Aplikasi web modern berbasis database SQLite dan Python FastAPI untuk mengelola penilaian peserta acara **KI23 (Korpus Institute)** dengan penegakan hak akses berbasis peran (**Role-Based Access Control / RBAC**) yang ketat dan portal autentikasi berbasis nama lengkap.
+Aplikasi web modern berbasis Python FastAPI untuk mengelola penilaian peserta acara **KI23 (Korpus Institute)** dengan penegakan hak akses berbasis peran (**Role-Based Access Control / RBAC**) yang ketat. Aplikasi menggunakan SQLite saat dijalankan lokal dan Turso/libSQL untuk database persisten pada Vercel.
 
 ---
 
@@ -62,3 +62,28 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 Akses antarmuka web di browser:
 👉 **http://127.0.0.1:8000/**
+
+---
+
+## Deploy ke Vercel dengan database persisten
+
+Vercel menggunakan runtime serverless. File SQLite lokal dan penyimpanan sesi di memori proses tidak cocok untuk produksi: file tidak persisten antar-instance, dan permintaan berikutnya dapat dilayani proses yang berbeda. Untuk deployment, aplikasi ini menggunakan database Turso/libSQL.
+
+1. Buat database Turso dan siapkan URL database serta auth token.
+2. Di **Vercel → Project → Settings → Environment Variables**, tambahkan:
+   - `TURSO_DATABASE_URL`
+   - `TURSO_AUTH_TOKEN`
+   
+   Isi untuk environment Vercel yang digunakan (Production, Preview, atau Development), lalu redeploy. Jangan simpan token di source code atau commit ke Git.
+3. Jika ingin mempertahankan isi database SQLite lokal, jalankan migrasi dari PowerShell pada komputer yang memiliki file `ki23_eval.db`:
+
+   ```powershell
+   $env:TURSO_DATABASE_URL = "libsql://URL-DATABASE-ANDA"
+   $env:TURSO_AUTH_TOKEN = "AUTH-TOKEN-ANDA"
+   python -m server.migrate_to_turso
+   ```
+
+   Migrasi menyalin tabel dan data lokal ke database Turso. Jalankan pada database Turso baru/kosong untuk menghindari konflik dengan data yang sudah ada. Perintah ini mengakses database remote, jadi jangan bagikan atau commit nilai auth token.
+4. Deploy ulang aplikasi ke Vercel. Startup membuat/memastikan skema tabel tersedia; data login, peserta, penilaian, dan sesi kemudian dibaca/ditulis pada database remote yang sama.
+
+Untuk menguji deployment, buka **Vercel → Deployments → Functions → Logs**. Jika konfigurasi database belum ada, aplikasi akan mencatat pesan yang menyebutkan variabel yang perlu ditambahkan, bukan diam-diam melanjutkan dengan database lokal yang tidak tersedia.

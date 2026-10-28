@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from server.database import init_db
+from server.database import init_db, is_remote_database_configured
 from server.seeder import seed_database
 from server.routes_auth import router as auth_router
 from server.routes_eval import router as eval_router
@@ -18,14 +18,10 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Diberikan try-except agar jika pembuatan DB/Excel gagal di serverless Vercel, 
-    # server FastAPI tetap bisa berjalan tanpa crash 500
-    try:
-        print("Initializing KI23 Evaluation System database...")
-        init_db()
+    print("Initializing KI23 Evaluation System database...")
+    init_db()
+    if not is_remote_database_configured() and not os.environ.get("VERCEL"):
         seed_database(seed_sample_scores=True)
-    except Exception as e:
-        print(f"Warning: Database initialization skipped/failed: {e}")
     yield
     print("Shutting down KI23 Evaluation System...")
 

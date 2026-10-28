@@ -1,23 +1,25 @@
 import hashlib
+import json
 import uuid
-from typing import Optional, List, Dict
+from typing import Optional, List
 from fastapi import Request, HTTPException, Depends, Header, Cookie
 from server.database import get_db
-
-# Active session tokens map: token -> user_dict
-SESSIONS: Dict[str, dict] = {}
 
 def hash_pw(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 def create_session(user_data: dict) -> str:
     token = str(uuid.uuid4())
-    SESSIONS[token] = user_data
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO sessions (session_token, user_data) VALUES (?, ?)",
+            (token, json.dumps(user_data)),
+        )
     return token
 
 def delete_session(token: str):
-    if token in SESSIONS:
-        del SESSIONS[token]
+    with get_db() as conn:
+        conn.execute("DELETE FROM sessions WHERE session_token = ?", (token,))
 
 def get_current_user(
     request: Request,
@@ -32,13 +34,22 @@ def get_current_user(
     elif request.query_params.get("token"):
         token = request.query_params.get("token")
         
-    if not token or token not in SESSIONS:
+    if not token:
         raise HTTPException(
             status_code=401,
             detail="Autentikasi diperlukan. Silakan login terlebih dahulu."
         )
-        
-    return SESSIONS[token]
+
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT user_data FROM sessions WHERE session_token = ?", (token,)
+        ).fetchone()
+    if not row:
+        raise HTTPException(
+            status_code=401,
+            detail="Autentikasi diperlukan. Silakan login terlebih dahulu."
+        )
+    return json.loads(row["user_data"])
 
 def require_roles(allowed_roles: List[str]):
     def role_checker(user: dict = Depends(get_current_user)):
