@@ -6,6 +6,8 @@ const FormProfesi = {
   selectedProf: 'ALL',
   selectedParticipantId: null,
   attendanceSet: false,
+  evaluationLoading: false,
+  evaluationRequestId: 0,
   participants: [],
   searchQuery: '',
 
@@ -54,18 +56,27 @@ const FormProfesi = {
   },
 
   async loadParticipantEvaluation() {
-    if (!this.selectedParticipantId) return;
+    const participantId = this.selectedParticipantId;
+    const session = this.selectedSession;
+    const requestId = ++this.evaluationRequestId;
+    if (!participantId) {
+      this.evaluationLoading = false;
+      return;
+    }
+
+    this.evaluationLoading = true;
     this.attendanceSet = false;
     try {
-      const res = await API.get(`/api/eval/profesi-general/${this.selectedParticipantId}`);
+      const res = await API.get(`/api/eval/profesi-general/${participantId}`);
+      if (requestId !== this.evaluationRequestId || participantId !== this.selectedParticipantId) return;
       const evals = res.evaluations || [];
       const tasks = res.tasks || [];
 
       // 1. General Evaluation
-      const attendance = (res.attendance || []).find(e => e.keprof_session === this.selectedSession);
+      const attendance = (res.attendance || []).find(e => e.keprof_session === session);
       this.attendanceSet = Boolean(attendance);
       this.scores.is_absen = attendance ? attendance.is_absen : 0;
-      const ev = evals.find(e => e.keprof_session === this.selectedSession);
+      const ev = evals.find(e => e.keprof_session === session);
       if (ev) {
         this.scores.kehadiran = (ev.score_kehadiran !== null && ev.score_kehadiran !== undefined) ? ev.score_kehadiran : 5;
         this.scores.partisipasi = (ev.score_partisipasi !== null && ev.score_partisipasi !== undefined) ? ev.score_partisipasi : 5;
@@ -79,7 +90,7 @@ const FormProfesi = {
       }
 
       // 2. Regular Task
-      const tReg = tasks.find(t => t.keprof_session === this.selectedSession && t.is_replacement === 0);
+      const tReg = tasks.find(t => t.keprof_session === session && t.is_replacement === 0);
       if (tReg && tReg.score_teknis !== null && tReg.score_teknis !== undefined) {
         this.scores.teknis_reguler = tReg.score_teknis;
         this.scores.notes_reguler = tReg.task_notes || '';
@@ -89,7 +100,7 @@ const FormProfesi = {
       }
 
       // 3. Replacement Task
-      const tRep = tasks.find(t => t.keprof_session === this.selectedSession && t.is_replacement === 1);
+      const tRep = tasks.find(t => t.keprof_session === session && t.is_replacement === 1);
       if (tRep && tRep.score_teknis !== null && tRep.score_teknis !== undefined) {
         this.scores.teknis_pengganti = tRep.score_teknis;
         this.scores.notes_pengganti = tRep.task_notes || '';
@@ -99,6 +110,10 @@ const FormProfesi = {
       }
     } catch (err) {
       console.error('Error loading participant evaluation:', err);
+    } finally {
+      if (requestId === this.evaluationRequestId) {
+        this.evaluationLoading = false;
+      }
     }
   },
 
@@ -177,7 +192,12 @@ const FormProfesi = {
 
         <!-- Right Panel: Scoring Form -->
         <div class="glass-card">
-          ${activeParticipant ? `
+          ${activeParticipant && this.evaluationLoading ? `
+            <div style="text-align: center; padding: 48px 20px; color: var(--text-muted);">
+              <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: var(--primary); margin-bottom: 12px;"></i>
+              <div>Memuat penilaian ${activeParticipant.name}...</div>
+            </div>
+          ` : activeParticipant ? `
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
               <div>
                 <span class="badge badge-profesi">${activeParticipant.profession}</span>
@@ -509,7 +529,9 @@ const FormProfesi = {
 
   async selectParticipant(id) {
     this.selectedParticipantId = id;
-    await this.loadParticipantEvaluation();
+    const evaluationRequest = this.loadParticipantEvaluation();
+    this.render();
+    await evaluationRequest;
     this.render();
   },
 

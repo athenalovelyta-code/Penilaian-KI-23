@@ -336,35 +336,84 @@ def get_profesi_general_for_participant(
         
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, profession, tabmin_group FROM participants WHERE id = ?", (participant_id,))
-        participant = cursor.fetchone()
+        cursor.execute("""
+            WITH target AS (
+                SELECT id, profession, tabmin_group
+                FROM participants
+                WHERE id = ?
+            )
+            SELECT
+                id AS participant_id, profession, tabmin_group, 'participant' AS record_type,
+                NULL AS id, NULL AS keprof_session, NULL AS score_kehadiran,
+                NULL AS score_partisipasi, NULL AS score_sikap, NULL AS notes,
+                NULL AS evaluator_id, NULL AS evaluator_name, NULL AS is_replacement,
+                NULL AS score_teknis, NULL AS score_isi, NULL AS hrd_evaluator_name,
+                NULL AS wali_evaluator_name, NULL AS task_notes, NULL AS is_absen,
+                NULL AS updated_at
+            FROM target
+            UNION ALL
+            SELECT
+                e.participant_id, target.profession, target.tabmin_group, 'evaluation',
+                e.id, e.keprof_session, e.score_kehadiran, e.score_partisipasi,
+                e.score_sikap, e.notes, e.evaluator_id, e.evaluator_name,
+                NULL, NULL, NULL, NULL, NULL, NULL, e.is_absen, e.updated_at
+            FROM profesi_general_evaluations e
+            JOIN target ON target.id = e.participant_id
+            UNION ALL
+            SELECT
+                t.participant_id, target.profession, target.tabmin_group, 'task',
+                t.id, t.keprof_session, NULL, NULL, NULL, NULL, NULL, NULL,
+                t.is_replacement, t.score_teknis, t.score_isi, t.hrd_evaluator_name,
+                t.wali_evaluator_name, t.task_notes, NULL, t.updated_at
+            FROM profesi_task_evaluations t
+            JOIN target ON target.id = t.participant_id
+            UNION ALL
+            SELECT
+                a.participant_id, target.profession, target.tabmin_group, 'attendance',
+                a.id, a.keprof_session, NULL, NULL, NULL, NULL, a.evaluator_id,
+                a.evaluator_name, NULL, NULL, NULL, NULL, NULL, NULL,
+                a.is_absen, a.updated_at
+            FROM profesi_attendance a
+            JOIN target ON target.id = a.participant_id
+        """, (participant_id,))
+        rows = cursor.fetchall()
+        participant_row = next(
+            (row for row in rows if row["record_type"] == "participant"),
+            None
+        )
+        participant = (
+            {
+                "id": participant_row["participant_id"],
+                "profession": participant_row["profession"],
+                "tabmin_group": participant_row["tabmin_group"],
+            }
+            if participant_row else None
+        )
         if not participant:
             raise HTTPException(status_code=404, detail="Peserta tidak ditemukan.")
         ensure_participant_scope(user, participant)
 
-        cursor.execute("""
-            SELECT * FROM profesi_general_evaluations
-            WHERE participant_id = ?
-            ORDER BY keprof_session
-        """, (participant_id,))
-        rows = cursor.fetchall()
-
-        cursor.execute("""
-            SELECT * FROM profesi_task_evaluations
-            WHERE participant_id = ?
-            ORDER BY keprof_session, is_replacement
-        """, (participant_id,))
-        task_rows = cursor.fetchall()
-        cursor.execute("""
-            SELECT keprof_session, is_absen, evaluator_name, updated_at
-            FROM profesi_attendance
-            WHERE participant_id = ?
-            ORDER BY keprof_session
-        """, (participant_id,))
-        attendance_rows = cursor.fetchall()
+        evaluations = [row for row in rows if row["record_type"] == "evaluation"]
+        task_rows = [row for row in rows if row["record_type"] == "task"]
+        attendance_rows = [
+            {
+                "keprof_session": row["keprof_session"],
+                "is_absen": row["is_absen"],
+                "evaluator_name": row["evaluator_name"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows if row["record_type"] == "attendance"
+        ]
         absent_sessions = {row["keprof_session"] for row in attendance_rows if row["is_absen"]}
-        rows = [row for row in rows if row["keprof_session"] not in absent_sessions]
-        return {"evaluations": rows, "tasks": task_rows, "attendance": attendance_rows}
+        evaluations = [
+            row for row in evaluations
+            if row["keprof_session"] not in absent_sessions
+        ]
+        return {
+            "evaluations": evaluations,
+            "tasks": task_rows,
+            "attendance": attendance_rows,
+        }
 
 # --- 4. Kelas Profesi Task Evaluation (HRD Profesi & Wali Kelas) ---
 @router.post("/profesi-task")
