@@ -37,7 +37,9 @@ const FormProfesi = {
   async loadParticipants() {
     try {
       const res = await API.get(`/api/eval/participants?profession=${this.selectedProf !== 'ALL' ? encodeURIComponent(this.selectedProf) : ''}`);
-      this.participants = res.participants || [];
+      this.participants = (res.participants || []).sort((a, b) =>
+        a.name.localeCompare(b.name, 'id', { sensitivity: 'base' })
+      );
       if (!this.participants.some(p => p.id === this.selectedParticipantId)) {
         this.selectedParticipantId = this.participants[0]?.id || null;
       }
@@ -154,7 +156,7 @@ const FormProfesi = {
           </div>
 
           <div style="margin-bottom: 14px;">
-            <input type="text" class="search-input" style="width: 100%;" placeholder="Cari nama peserta..." value="${this.searchQuery}" oninput="FormProfesi.onSearch(this.value)">
+            <input id="profesi-participant-search" type="text" class="search-input" style="width: 100%;" placeholder="Cari nama peserta..." value="${this.searchQuery}" oninput="FormProfesi.onSearch(this.value, this)">
           </div>
 
           <div style="max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
@@ -495,9 +497,14 @@ const FormProfesi = {
     });
   },
 
-  onSearch(val) {
+  onSearch(val, input) {
     this.searchQuery = val;
     this.render();
+    const updatedInput = document.getElementById('profesi-participant-search');
+    if (updatedInput) {
+      updatedInput.focus();
+      updatedInput.setSelectionRange(input.selectionStart, input.selectionEnd);
+    }
   },
 
   async selectParticipant(id) {
