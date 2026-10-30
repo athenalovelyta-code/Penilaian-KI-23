@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     init_db()
     revoke_sessions_from_insecure_login_flows()
     if not is_remote_database_configured() and not os.environ.get("VERCEL"):
-        seed_database(seed_sample_scores=True)
+        seed_database(seed_sample_scores=False)
     yield
     print("Shutting down KI23 Evaluation System...")
 

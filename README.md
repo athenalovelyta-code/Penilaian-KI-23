@@ -34,6 +34,26 @@ Aplikasi web modern berbasis Python FastAPI untuk mengelola penilaian peserta ac
 - Nilai akhir kelas profesi merupakan rata-rata nilai Keprof 1, 2, dan 3.
 - Pengaturan kehadiran hanya dapat dilakukan oleh HRD Profesi, Kepala HRD, dan Teknisi.
 
+### Impor Absensi Keprof
+Status hadir dapat diperbarui dari berkas `ABSENSI KEPROF.xlsx`. Centang berarti hadir; tidak dicentang berarti tidak hadir. Validasi terlebih dahulu, lalu jalankan impor dari folder proyek:
+
+```powershell
+python -m server.import_profesi_attendance --dry-run --resolve-duplicate "Shofiyyah Mukhayadi=Kelompok 6"
+python -m server.import_profesi_attendance --resolve-duplicate "Shofiyyah Mukhayadi=Kelompok 6"
+```
+
+Impor memperbarui status kehadiran Keprof 1–3 dan tidak menghapus nilai penilaian yang sudah tersimpan. Jika menggunakan database Turso untuk website Vercel, atur `TURSO_DATABASE_URL` dan `TURSO_AUTH_TOKEN` di environment terminal lokal sebelum menjalankan perintah impor, agar perubahan masuk ke database deployment. Jangan simpan atau commit nilai token.
+
+### Mengosongkan Semua Nilai Evaluasi
+Untuk menghapus seluruh nilai anggota Tabmin, produk kelompok, penilaian umum Keprof, dan penilaian tugas sambil mempertahankan status absensi, jalankan simulasi lalu reset dengan konfirmasi:
+
+```powershell
+python -m server.reset_evaluations
+python -m server.reset_evaluations --confirm
+```
+
+Perintah memakai database yang sedang dikonfigurasi: lokal jika `TURSO_DATABASE_URL` tidak diatur, atau Turso jika URL dan token tersedia. Startup aplikasi lokal tidak akan membuat ulang nilai contoh setelah reset.
+
 ---
 
 ### 3. Akses Peserta KI23 (Anggota Kelompok Tabmin)
