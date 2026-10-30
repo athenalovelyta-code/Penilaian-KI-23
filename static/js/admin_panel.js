@@ -350,10 +350,11 @@ const AdminPanel = {
           </select>
         </div>
 
-        <!-- Dynamic Wali Kelas Profession Picker -->
+        <!-- Dynamic Profession Assignment Picker -->
         <div id="staff-profession-field" style="display: none;">
-          <label style="font-weight: 600; font-size: 0.85rem; color: white; display: block; margin-bottom: 6px;">Penugasan Divisi Profesi Wali Kelas</label>
+          <label id="staff-profession-label" style="font-weight: 600; font-size: 0.85rem; color: white; display: block; margin-bottom: 6px;">Penugasan Divisi Profesi</label>
           <select id="staff-prof" class="custom-select" style="width: 100%;">
+            <option value="">Pilih profesi...</option>
             <option value="Reporter">Reporter</option>
             <option value="Fotografer">Fotografer</option>
             <option value="Ilustrator">Ilustrator</option>
@@ -363,10 +364,11 @@ const AdminPanel = {
           </select>
         </div>
 
-        <!-- Dynamic PJK Group Picker -->
+        <!-- Dynamic Group Assignment Picker -->
         <div id="staff-group-field" style="display: none;">
-          <label style="font-weight: 600; font-size: 0.85rem; color: white; display: block; margin-bottom: 6px;">Penugasan Kelompok Tabmin PJK</label>
+          <label id="staff-group-label" style="font-weight: 600; font-size: 0.85rem; color: white; display: block; margin-bottom: 6px;">Penugasan Kelompok Tabmin</label>
           <select id="staff-group" class="custom-select" style="width: 100%;">
+            <option value="">Pilih kelompok...</option>
             <option value="Kelompok 1">Kelompok 1</option>
             <option value="Kelompok 2">Kelompok 2</option>
             <option value="Kelompok 3">Kelompok 3</option>
@@ -397,13 +399,34 @@ const AdminPanel = {
     `;
 
     modal.classList.add('active');
+    this.toggleStaffAssignmentFields(document.getElementById('staff-role').value);
   },
 
   toggleStaffAssignmentFields(role) {
     const profField = document.getElementById('staff-profession-field');
     const grpField = document.getElementById('staff-group-field');
-    if (profField) profField.style.display = (role === 'wali_kelas') ? 'block' : 'none';
-    if (grpField) grpField.style.display = (role === 'pjk') ? 'block' : 'none';
+    const professionRoles = ['wali_kelas', 'hrd_profesi', 'hrd_all'];
+    const groupRoles = ['pjk', 'hrd_kelompok', 'hrd_all'];
+    if (profField) profField.style.display = professionRoles.includes(role) ? 'block' : 'none';
+    if (grpField) grpField.style.display = groupRoles.includes(role) ? 'block' : 'none';
+
+    const profLabel = document.getElementById('staff-profession-label');
+    const groupLabel = document.getElementById('staff-group-label');
+    if (profLabel) {
+      profLabel.textContent = role === 'wali_kelas'
+        ? 'Penugasan Divisi Profesi Wali Kelas'
+        : 'Penugasan Divisi Profesi HRD';
+    }
+    if (groupLabel) {
+      groupLabel.textContent = role === 'pjk'
+        ? 'Penugasan Kelompok Tabmin PJK'
+        : 'Penugasan Kelompok Tabmin HRD';
+    }
+
+    const allProfessionOption = document.querySelector('#staff-prof option[value="ALL"]');
+    const profSelect = document.getElementById('staff-prof');
+    if (allProfessionOption) allProfessionOption.hidden = role !== 'wali_kelas';
+    if (profSelect && role !== 'wali_kelas' && profSelect.value === 'ALL') profSelect.value = '';
   },
 
   async submitAddStaff() {
@@ -414,14 +437,23 @@ const AdminPanel = {
     
     let assignedGroup = null;
     let assignedProf = null;
-    if (role === 'wali_kelas') {
+    if (['wali_kelas', 'hrd_profesi', 'hrd_all'].includes(role)) {
       assignedProf = document.getElementById('staff-prof').value;
-    } else if (role === 'pjk') {
+    }
+    if (['pjk', 'hrd_kelompok', 'hrd_all'].includes(role)) {
       assignedGroup = document.getElementById('staff-group').value;
     }
 
     if (!name) {
       showToast('Nama lengkap panitia wajib diisi.', 'warning');
+      return;
+    }
+    if (['hrd_profesi', 'hrd_all'].includes(role) && !assignedProf) {
+      showToast('Profesi penugasan HRD wajib dipilih.', 'warning');
+      return;
+    }
+    if (['pjk', 'hrd_kelompok', 'hrd_all'].includes(role) && !assignedGroup) {
+      showToast('Kelompok penugasan wajib dipilih.', 'warning');
       return;
     }
 
@@ -477,18 +509,21 @@ const AdminPanel = {
           </select>
         </div>
 
-        <div id="staff-profession-field" style="display: ${staff.role === 'wali_kelas' ? 'block' : 'none'};">
-          <label style="font-weight: 600; font-size: 0.85rem; color: white; display: block; margin-bottom: 6px;">Penugasan Divisi Profesi Wali Kelas</label>
+        <div id="staff-profession-field" style="display: ${['wali_kelas', 'hrd_profesi', 'hrd_all'].includes(staff.role) ? 'block' : 'none'};">
+          <label id="staff-profession-label" style="font-weight: 600; font-size: 0.85rem; color: white; display: block; margin-bottom: 6px;">${staff.role === 'wali_kelas' ? 'Penugasan Divisi Profesi Wali Kelas' : 'Penugasan Divisi Profesi HRD'}</label>
           <select id="staff-prof" class="custom-select" style="width: 100%;">
-            ${['Reporter', 'Fotografer', 'Ilustrator', 'Layouter', 'Marcomm', 'ALL'].map(prof => `
+            <option value="" ${!staff.assigned_profession ? 'selected' : ''}>Pilih profesi...</option>
+            ${['Reporter', 'Fotografer', 'Ilustrator', 'Layouter', 'Marcomm'].map(prof => `
               <option value="${prof}" ${staff.assigned_profession === prof ? 'selected' : ''}>${prof}</option>
             `).join('')}
+            <option value="ALL" ${staff.role === 'wali_kelas' && staff.assigned_profession === 'ALL' ? 'selected' : ''}>Semua Profesi</option>
           </select>
         </div>
 
-        <div id="staff-group-field" style="display: ${staff.role === 'pjk' ? 'block' : 'none'};">
-          <label style="font-weight: 600; font-size: 0.85rem; color: white; display: block; margin-bottom: 6px;">Penugasan Kelompok Tabmin PJK</label>
+        <div id="staff-group-field" style="display: ${['pjk', 'hrd_kelompok', 'hrd_all'].includes(staff.role) ? 'block' : 'none'};">
+          <label id="staff-group-label" style="font-weight: 600; font-size: 0.85rem; color: white; display: block; margin-bottom: 6px;">${staff.role === 'pjk' ? 'Penugasan Kelompok Tabmin PJK' : 'Penugasan Kelompok Tabmin HRD'}</label>
           <select id="staff-group" class="custom-select" style="width: 100%;">
+            <option value="" ${!staff.assigned_group ? 'selected' : ''}>Pilih kelompok...</option>
             ${['Kelompok 1', 'Kelompok 2', 'Kelompok 3', 'Kelompok 4', 'Kelompok 5', 'Kelompok 6'].map(grp => `
               <option value="${grp}" ${staff.assigned_group === grp ? 'selected' : ''}>${grp}</option>
             `).join('')}
@@ -516,6 +551,7 @@ const AdminPanel = {
     `;
 
     modal.classList.add('active');
+    this.toggleStaffAssignmentFields(staff.role);
   },
 
   async submitEditStaff(staffId) {
@@ -526,12 +562,26 @@ const AdminPanel = {
 
     let assignedGroup = null;
     let assignedProf = null;
-    if (role === 'wali_kelas') {
+    if (['wali_kelas', 'hrd_profesi', 'hrd_all'].includes(role)) {
       const el = document.getElementById('staff-prof');
       if (el) assignedProf = el.value;
-    } else if (role === 'pjk') {
+    }
+    if (['pjk', 'hrd_kelompok', 'hrd_all'].includes(role)) {
       const el = document.getElementById('staff-group');
       if (el) assignedGroup = el.value;
+    }
+
+    if (!name) {
+      showToast('Nama lengkap panitia wajib diisi.', 'warning');
+      return;
+    }
+    if (['hrd_profesi', 'hrd_all'].includes(role) && !assignedProf) {
+      showToast('Profesi penugasan HRD wajib dipilih.', 'warning');
+      return;
+    }
+    if (['pjk', 'hrd_kelompok', 'hrd_all'].includes(role) && !assignedGroup) {
+      showToast('Kelompok penugasan wajib dipilih.', 'warning');
+      return;
     }
 
     try {
@@ -542,8 +592,8 @@ const AdminPanel = {
           role: role,
           username: username,
           password: password || null,
-          assigned_group: assignedGroup,
-          assigned_profession: assignedProf
+          assigned_group: assignedGroup || '',
+          assigned_profession: assignedProf || ''
         }
       });
       showToast(res.message, 'success');
