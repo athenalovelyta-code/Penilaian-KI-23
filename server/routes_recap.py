@@ -12,19 +12,28 @@ RECAP_ROLES = [
     "hrd_kepala", "hrd_profesi", "hrd_kelompok", "hrd_kelompok_ketua", "hrd_all"
 ]
 
-def get_full_recap_data(group: Optional[str] = None, profession: Optional[str] = None, search: Optional[str] = None):
+def get_full_recap_data(
+    group: Optional[str] = None,
+    profession: Optional[str] = None,
+    search: Optional[str] = None,
+    group_or_profession: bool = False,
+):
     with get_db() as conn:
         cursor = conn.cursor()
         
         # 1. Fetch participants
         p_query = "SELECT id, name, profession, tabmin_group, pjk_name FROM participants WHERE 1=1"
         p_params = []
-        if group and group != "ALL":
-            p_query += " AND tabmin_group = ?"
-            p_params.append(group)
-        if profession and profession != "ALL":
-            p_query += " AND profession = ?"
-            p_params.append(profession)
+        if group_or_profession and group and group != "ALL" and profession and profession != "ALL":
+            p_query += " AND (tabmin_group = ? OR profession = ?)"
+            p_params.extend([group, profession])
+        else:
+            if group and group != "ALL":
+                p_query += " AND tabmin_group = ?"
+                p_params.append(group)
+            if profession and profession != "ALL":
+                p_query += " AND profession = ?"
+                p_params.append(profession)
         if search:
             p_query += " AND (name LIKE ? OR tabmin_group LIKE ? OR profession LIKE ?)"
             s = f"%{search}%"
@@ -315,7 +324,9 @@ def get_master_recap(
 ):
     group, profession = apply_user_scope(user, group, profession)
 
-    master_rows, detail_tabmin, detail_prod, detail_prof = get_full_recap_data(group, profession, search)
+    master_rows, detail_tabmin, detail_prod, detail_prof = get_full_recap_data(
+        group, profession, search, group_or_profession=user.get("role") == "hrd_all"
+    )
     return {
         "user_role": user["role"],
         "user_name": user["full_name"],
@@ -331,7 +342,12 @@ def get_tabmin_detail(
 ):
     group, profession = apply_user_scope(user, group)
 
-    _, detail_tabmin, detail_prod, _ = get_full_recap_data(group=group, profession=profession, search=search)
+    _, detail_tabmin, detail_prod, _ = get_full_recap_data(
+        group=group,
+        profession=profession,
+        search=search,
+        group_or_profession=user.get("role") == "hrd_all",
+    )
     return {
         "members": detail_tabmin,
         "products": detail_prod
@@ -345,7 +361,12 @@ def get_profesi_detail(
 ):
     group, profession = apply_user_scope(user, profession=profession)
 
-    _, _, _, detail_prof = get_full_recap_data(group=group, profession=profession, search=search)
+    _, _, _, detail_prof = get_full_recap_data(
+        group=group,
+        profession=profession,
+        search=search,
+        group_or_profession=user.get("role") == "hrd_all",
+    )
     return {
         "participants": detail_prof
     }
@@ -356,15 +377,23 @@ def get_summary_kpi(user: dict = Depends(require_roles(RECAP_ROLES))):
 
     with get_db() as conn:
         cursor = conn.cursor()
-        master_rows, _, _, _ = get_full_recap_data(group=filter_group, profession=filter_prof)
+        group_or_profession = user.get("role") == "hrd_all"
+        master_rows, _, _, _ = get_full_recap_data(
+            group=filter_group,
+            profession=filter_prof,
+            group_or_profession=group_or_profession,
+        )
         total_p = len(master_rows)
         total_g = len({row["tabmin_group"] for row in master_rows})
         scope_sql = []
         scope_params = []
-        if filter_group:
+        if group_or_profession and filter_group and filter_prof:
+            scope_sql.append("(p.tabmin_group = ? OR p.profession = ?)")
+            scope_params.extend([filter_group, filter_prof])
+        elif filter_group:
             scope_sql.append("p.tabmin_group = ?")
             scope_params.append(filter_group)
-        if filter_prof:
+        if not group_or_profession and filter_prof:
             scope_sql.append("p.profession = ?")
             scope_params.append(filter_prof)
         scope_where = (" WHERE " + " AND ".join(scope_sql)) if scope_sql else ""
@@ -424,7 +453,9 @@ def export_excel_report(
 ):
     group, profession = apply_user_scope(user, group, profession)
 
-    master_rows, detail_tabmin, detail_prod, detail_prof = get_full_recap_data(group, profession)
+    master_rows, detail_tabmin, detail_prod, detail_prof = get_full_recap_data(
+        group, profession, group_or_profession=user.get("role") == "hrd_all"
+    )
     excel_stream = generate_excel_report(master_rows, detail_tabmin, detail_prod, detail_prof)
     
     filename = "Rekapitulasi_Nilai_KI23.xlsx"
