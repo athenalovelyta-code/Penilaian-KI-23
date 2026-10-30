@@ -24,7 +24,7 @@ Aplikasi web modern berbasis Python FastAPI untuk mengelola penilaian peserta ac
 | 📚 **HRD Profesi** | **Felia Nazwa Khairunnisa** | Hanya dapat mengakses peserta dari profesi yang ditugaskan; dapat mengatur kehadiran dan menilai kelas profesi. |
 | 👑👥 **HRD Kelompok (Ketua)** | **Kayana Syahda P.E** | Mengelola penilaian Tabmin serta rekap sesuai lingkup kelompok. |
 | 👥 **HRD Kelompok** | HRD yang ditugaskan ke Kelompok 1–6 | Hanya dapat mengakses dan mengedit penilaian Tabmin untuk kelompok yang ditugaskan. |
-| 🌟 **HRD Kelompok & Profesi** | **Cut Khairunnisa**, **Manika Dwi Zakia** | Lingkup akses dibatasi sekaligus ke kelompok dan profesi yang tercantum pada penugasan panitia. |
+| 🌟 **HRD Kelompok & Profesi** | **Cut Khairunnisa** (Kelompok 5 + Layouter), **Manika Dwi Zakia** (Kelompok 1 + Ilustrator) | Dapat menilai seluruh peserta yang berada di kelompok yang ditugaskan **atau** memiliki profesi yang ditugaskan; tidak dibatasi hanya peserta yang memenuhi kedua syarat sekaligus. |
 | 🧑‍🏫 **Wali Kelas** | **Fara**, **Natasha** (Reporter)<br>**Farhan**, **Maharani** (Marcomm)<br>**Khairu** (Ilustrator)<br>**Ibrahim**, **Zaskia** (Fotografer)<br>**Rahimah**, **Audy** (Layouter) | Hanya dapat menilai isi Tugas Utama dan Tugas Pengganti Keprof 1–2 untuk profesi yang ditugaskan; status kehadiran dikelola HRD. |
 | 🤝 **PJK (Penanggung Jawab Kelompok)** | **Salsabila Az Zahra** (Kelompok 1)<br>**Novita Tireina** (Kelompok 2)<br>**Aldi Arkananta** (Kelompok 3)<br>**Nadiny** (Kelompok 4)<br>**Sarah Nur Rahmah** (Kelompok 5)<br>**Ananda Ayu Pertiwi** (Kelompok 6) | Hanya dapat mengakses dan menilai anggota kelompok Tabmin yang ditugaskan kepadanya. |
 
@@ -49,7 +49,7 @@ Aplikasi web modern berbasis Python FastAPI untuk mengelola penilaian peserta ac
 ### 4. Panel Khusus Teknisi: Manajemen Panitia & Pengguna
 Teknisi (**Athena Lovelyta Jasmine**) memiliki tab khusus **"Kelola Panitia & User"** di Panel Teknisi:
 1. **Tambah Panitia Baru**: Tombol `+ Tambah Panitia / User` untuk mendaftarkan panitia baru kapan saja (misal: menginput nama **Wakil Kepala Sekolah**, menambah Wali Kelas atau PJK baru).
-2. **Edit Panitia & Posisi**: Mengubah nama, posisi/role, profesi penugasan, atau kelompok penugasan. HRD Profesi dapat ditugaskan ke salah satu profesi; HRD Kelompok ke kelompok tertentu; HRD Kelompok & Profesi mendapat pilihan keduanya.
+2. **Edit Panitia & Posisi**: Mengubah nama, posisi/role, profesi penugasan, atau kelompok penugasan. HRD Profesi dapat ditugaskan ke salah satu profesi; HRD Kelompok ke kelompok tertentu; HRD Kelompok & Profesi mendapat pilihan keduanya dan dapat menilai peserta dari kelompok **atau** profesinya.
 3. **Hapus Panitia**: Menghapus akun staf dengan perlindungan keamanan sistem.
 4. **Sinkronkan Ulang dari Excel**: Tombol 1-klik untuk menyinkronkan ulang data dari `Pakai Daftar Ini Ya.xlsx`.
 

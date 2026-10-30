@@ -123,7 +123,9 @@ const FormProfesi = {
 
     const filtered = this.participants.filter(p => {
       const matchesSearch = !this.searchQuery || p.name.toLowerCase().includes(this.searchQuery.toLowerCase());
-      const matchesProf = this.selectedProf === 'ALL' || p.profession === this.selectedProf;
+      const isCombinedAssignment = App.currentUser?.role === 'hrd_all'
+        && p.tabmin_group === App.currentUser.assigned_group;
+      const matchesProf = this.selectedProf === 'ALL' || p.profession === this.selectedProf || isCombinedAssignment;
       return matchesSearch && matchesProf;
     });
 
@@ -153,9 +155,12 @@ const FormProfesi = {
         <div class="glass-card" style="height: fit-content;">
           <div style="margin-bottom: 14px;">
             ${(['hrd_profesi', 'hrd_all'].includes(App.currentUser?.role) && App.currentUser?.assigned_profession && App.currentUser.assigned_profession !== 'ALL') ? `
-              <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Divisi Profesi Anda</label>
+              <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Penugasan Anda</label>
               <div style="padding: 10px 14px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.35); border-radius: var(--radius-sm); font-weight: 700; color: #a5b4fc; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
-                <i class="fas fa-lock" style="font-size: 0.8rem;"></i> ${App.currentUser.assigned_profession} (Isolasi Aktif)
+                <i class="fas fa-lock" style="font-size: 0.8rem;"></i>
+                ${App.currentUser.role === 'hrd_all'
+                  ? `${App.currentUser.assigned_profession} + ${App.currentUser.assigned_group}`
+                  : App.currentUser.assigned_profession} (Isolasi Aktif)
               </div>
             ` : `
               <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Filter Profesi</label>

@@ -110,6 +110,14 @@ def ensure_participant_scope(user: dict, participant: dict):
         return
 
     group, profession = apply_user_scope(user)
+    if user.get("role") == "hrd_all":
+        if participant.get("tabmin_group") != group and participant.get("profession") != profession:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Akses hanya untuk peserta {group} atau profesi {profession}.",
+            )
+        return
+
     if group and participant.get("tabmin_group") != group:
         raise HTTPException(status_code=403, detail=f"Akses hanya untuk peserta {group}.")
     if profession and participant.get("profession") != profession:

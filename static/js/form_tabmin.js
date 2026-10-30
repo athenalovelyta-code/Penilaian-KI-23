@@ -86,10 +86,10 @@ const FormTabmin = {
           <div>
             <h2 style="font-size: 1.4rem; color: white;">
               <i class="fas fa-users-cog" style="color: var(--secondary);"></i> 
-              Form Penilaian ${isPJK ? 'PJK (' + user.assigned_group + ')' : (user.role === 'hrd_kelompok_ketua' ? 'HRD Kelompok (Ketua)' : 'HRD Kelompok')}
+              Form Penilaian ${isPJK ? 'PJK (' + user.assigned_group + ')' : (user.role === 'hrd_kelompok_ketua' ? 'HRD Kelompok (Ketua)' : (user.role === 'hrd_all' ? 'HRD Kelompok & Profesi' : 'HRD Kelompok'))}
             </h2>
             <p style="color: var(--text-muted); font-size: 0.85rem;">
-              ${isPJK ? 'Penilaian anggota kelompok Tabmin yang menjadi tanggung jawab Anda.' : (user.role === 'hrd_kelompok_ketua' ? 'Penilaian anggota kelompok & produk karya Tabmin 1-6 (Ketua HRD Kelompok).' : 'Penilaian anggota kelompok dan produk hasil karya Tabmin 1-6.')}
+              ${isPJK ? 'Penilaian anggota kelompok Tabmin yang menjadi tanggung jawab Anda.' : (user.role === 'hrd_kelompok_ketua' ? 'Penilaian anggota kelompok & produk karya Tabmin 1-6 (Ketua HRD Kelompok).' : (user.role === 'hrd_all' ? `Penilaian anggota dari ${user.assigned_group} atau profesi ${user.assigned_profession}.` : 'Penilaian anggota kelompok dan produk hasil karya Tabmin 1-6.'))}
             </p>
           </div>
 
@@ -98,7 +98,7 @@ const FormTabmin = {
             ${(isPJK || (['hrd_kelompok', 'hrd_kelompok_ketua', 'hrd_all'].includes(user.role) && user.assigned_group)) ? `
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="badge badge-group" style="font-size: 0.9rem; padding: 8px 16px;">${this.selectedGroup}</span>
-                ${!isPJK ? '<span style="font-size: 0.72rem; color: var(--text-dim);"><i class="fas fa-lock"></i> Isolasi Kelompok</span>' : ''}
+                ${!isPJK ? `<span style="font-size: 0.72rem; color: var(--text-dim);"><i class="fas fa-lock"></i> ${user.role === 'hrd_all' ? 'Kelompok + Profesi' : 'Isolasi Kelompok'}</span>` : ''}
               </div>
             ` : `
               <select class="custom-select" onchange="FormTabmin.setGroup(this.value)">

@@ -66,16 +66,22 @@ def get_participants(
         # Wali Kelas: if assigned specific profession, filter by it
         if role == "wali_kelas" and user.get("assigned_profession") and user.get("assigned_profession") != "ALL":
             profession = user.get("assigned_profession")
-        group, profession = apply_user_scope(user, group, profession)
+        if role == "hrd_all":
+            group, profession = apply_user_scope(user)
+        else:
+            group, profession = apply_user_scope(user, group, profession)
 
     with get_db() as conn:
         cursor = conn.cursor()
         query = "SELECT id, name, profession, tabmin_group, pjk_name, whatsapp_group, jurusan FROM participants WHERE 1=1"
         params = []
-        if group:
+        if role == "hrd_all":
+            query += " AND (tabmin_group = ? OR profession = ?)"
+            params.extend((group, profession))
+        elif group:
             query += " AND tabmin_group = ?"
             params.append(group)
-        if profession:
+        if role != "hrd_all" and profession:
             query += " AND profession = ?"
             params.append(profession)
         if current_pid:
@@ -219,10 +225,16 @@ def get_my_tabmin_evaluations(user: dict = Depends(get_current_user)):
             ORDER BY p.name
         """, (evaluator_name,))
         rows = cursor.fetchall()
-        if group:
-            rows = [row for row in rows if row["tabmin_group"] == group]
-        if profession:
-            rows = [row for row in rows if row["profession"] == profession]
+        if user.get("role") == "hrd_all":
+            rows = [
+                row for row in rows
+                if row["tabmin_group"] == group or row["profession"] == profession
+            ]
+        else:
+            if group:
+                rows = [row for row in rows if row["tabmin_group"] == group]
+            if profession:
+                rows = [row for row in rows if row["profession"] == profession]
         return {"evaluations": rows}
 
 # --- 2. Tabmin Product Evaluation ---
@@ -587,10 +599,13 @@ def get_wali_profesi_tasks(
             WHERE 1=1
         """
         params = [session, session, is_replacement, session, session]
-        if group_filter:
+        if role == "hrd_all":
+            query += " AND (p.tabmin_group = ? OR p.profession = ?)"
+            params.extend([group_filter, prof_filter])
+        elif group_filter:
             query += " AND p.tabmin_group = ?"
             params.append(group_filter)
-        if prof_filter:
+        if role != "hrd_all" and prof_filter:
             query += " AND p.profession = ?"
             params.append(prof_filter)
         query += " ORDER BY p.profession, p.name"

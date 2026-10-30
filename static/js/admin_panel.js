@@ -249,7 +249,7 @@ const AdminPanel = {
       'hrd_kelompok_ketua': { label: 'HRD Kelompok (Ketua)', bg: '#6366f122', border: '#6366f155', color: '#a5b4fc', hak: 'Lihat Semua Nilai, Hanya Edit Tabmin (Ketua)' },
       'hrd_profesi': { label: 'HRD Profesi', bg: '#ec489922', border: '#ec489955', color: '#f472b6', hak: 'Lihat Semua, Hanya Edit Kelas Profesi' },
       'hrd_kelompok': { label: 'HRD Kelompok', bg: '#8b5cf622', border: '#8b5cf655', color: '#c4b5fd', hak: 'Lihat Semua, Hanya Edit Tabmin' },
-      'hrd_all': { label: 'HRD Kelompok & Profesi', bg: '#a855f722', border: '#a855f755', color: '#d8b4fe', hak: 'Lihat & Edit Semua Nilai' },
+      'hrd_all': { label: 'HRD Kelompok & Profesi', bg: '#a855f722', border: '#a855f755', color: '#d8b4fe', hak: 'Edit nilai untuk kelompok atau profesi yang ditugaskan' },
       'wali_kelas': { label: 'Wali Kelas', bg: '#10b98122', border: '#10b98155', color: '#6ee7b7', hak: 'Hanya Edit Tugas & Pengganti (Isolasi HRD)' },
       'pjk': { label: 'PJK', bg: '#14b8a622', border: '#14b8a655', color: '#5eead4', hak: 'Hanya Edit Tabmin Kelompoknya (Isolasi HRD)' }
     };
