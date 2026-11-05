@@ -7,6 +7,8 @@ const FormTabmin = {
   selectedParticipantId: null,
   participants: [],
   searchQuery: '',
+  savingMember: false,
+  savingProduct: false,
 
   // Member scores
   memberScores: {
@@ -271,8 +273,8 @@ const FormTabmin = {
               <textarea class="search-input" style="width: 100%; height: 80px; resize: vertical;" placeholder="Tulis catatan apresiasi atau evaluasi khusus..." oninput="FormTabmin.memberScores.notes = this.value">${this.memberScores.notes}</textarea>
             </div>
 
-            <button class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;" onclick="FormTabmin.submitMember()">
-              <i class="fas fa-save"></i> Simpan Penilaian Anggota Tabmin
+            <button id="tabmin-member-save" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;" onclick="FormTabmin.submitMember()" ${this.savingMember ? 'disabled' : ''}>
+              ${this.savingMember ? '<i class="fas fa-spinner fa-spin"></i> Menyimpan...' : '<i class="fas fa-save"></i> Simpan Penilaian Anggota Tabmin'}
             </button>
           ` : '<div style="color: var(--text-dim); text-align: center; padding: 40px;">Pilih anggota kelompok di panel kiri.</div>'}
         </div>
@@ -341,8 +343,8 @@ const FormTabmin = {
           <textarea class="search-input" style="width: 100%; height: 80px; resize: vertical;" placeholder="Tuliskan ulasan menyeluruh tentang produk kelompok ini..." oninput="FormTabmin.productScores.notes = this.value">${this.productScores.notes}</textarea>
         </div>
 
-        <button class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;" onclick="FormTabmin.submitProduct()">
-          <i class="fas fa-save"></i> Simpan Penilaian Produk ${this.selectedGroup}
+        <button id="tabmin-product-save" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;" onclick="FormTabmin.submitProduct()" ${this.savingProduct ? 'disabled' : ''}>
+          ${this.savingProduct ? '<i class="fas fa-spinner fa-spin"></i> Menyimpan...' : `<i class="fas fa-save"></i> Simpan Penilaian Produk ${this.selectedGroup}`}
         </button>
       </div>
     `;
@@ -416,35 +418,68 @@ const FormTabmin = {
   },
 
   async submitMember() {
-    if (!this.selectedParticipantId) return;
+    if (!this.selectedParticipantId || this.savingMember) return;
+    const participantId = this.selectedParticipantId;
+    const scores = { ...this.memberScores };
+    this.savingMember = true;
+    const button = document.getElementById('tabmin-member-save');
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+    }
+
     try {
       await API.post('/api/eval/tabmin-member', {
-        participant_id: this.selectedParticipantId,
-        score_kehadiran: this.memberScores.kehadiran,
-        score_partisipasi: this.memberScores.partisipasi,
-        score_sikap: this.memberScores.sikap,
-        notes: this.memberScores.notes
+        participant_id: participantId,
+        score_kehadiran: scores.kehadiran,
+        score_partisipasi: scores.partisipasi,
+        score_sikap: scores.sikap,
+        notes: scores.notes
       });
       showToast('Penilaian Anggota Tabmin berhasil disimpan!', 'success');
     } catch (err) {
       showToast(err.message, 'error');
+    } finally {
+      this.savingMember = false;
+      const activeButton = document.getElementById('tabmin-member-save');
+      if (activeButton) {
+        activeButton.disabled = false;
+        activeButton.innerHTML = '<i class="fas fa-save"></i> Simpan Penilaian Anggota Tabmin';
+      }
     }
   },
 
   async submitProduct() {
+    if (this.savingProduct) return;
+    const group = this.selectedGroup;
+    const scores = { ...this.productScores };
+    this.savingProduct = true;
+    const button = document.getElementById('tabmin-product-save');
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+    }
+
     try {
       await API.post('/api/eval/tabmin-product', {
-        tabmin_group: this.selectedGroup,
-        score_reporter: this.productScores.reporter,
-        score_fotografer: this.productScores.fotografer,
-        score_ilustrator: this.productScores.ilustrator,
-        score_layouter: this.productScores.layouter,
-        score_marcomm: this.productScores.marcomm,
-        notes: this.productScores.notes
+        tabmin_group: group,
+        score_reporter: scores.reporter,
+        score_fotografer: scores.fotografer,
+        score_ilustrator: scores.ilustrator,
+        score_layouter: scores.layouter,
+        score_marcomm: scores.marcomm,
+        notes: scores.notes
       });
-      showToast(`Penilaian Produk ${this.selectedGroup} berhasil disimpan!`, 'success');
+      showToast(`Penilaian Produk ${group} berhasil disimpan!`, 'success');
     } catch (err) {
       showToast(err.message, 'error');
+    } finally {
+      this.savingProduct = false;
+      const activeButton = document.getElementById('tabmin-product-save');
+      if (activeButton) {
+        activeButton.disabled = false;
+        activeButton.innerHTML = `<i class="fas fa-save"></i> Simpan Penilaian Produk ${this.selectedGroup}`;
+      }
     }
   }
 };

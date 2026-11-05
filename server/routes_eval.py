@@ -178,30 +178,56 @@ def save_tabmin_member_eval(
 
     with get_db() as conn:
         cursor = conn.cursor()
-        # Verify target participant
-        cursor.execute("SELECT id, name, profession, tabmin_group FROM participants WHERE id = ?", (data.participant_id,))
-        p = cursor.fetchone()
-        if not p:
-            raise HTTPException(status_code=404, detail="Peserta tidak ditemukan.")
-            
-        ensure_participant_scope(user, p)
+        scope_conditions = ["p.id = ?"]
+        scope_parameters = [data.participant_id]
 
-        # Upsert evaluation
-        cursor.execute("""
+        if role == "peserta":
+            group = user.get("assigned_group")
+            if not group:
+                raise HTTPException(status_code=403, detail="Akun peserta tidak memiliki kelompok Tabmin.")
+            scope_conditions.append("p.tabmin_group = ?")
+            scope_parameters.append(group)
+        else:
+            group, profession = apply_user_scope(user)
+            if role == "hrd_all":
+                scope_conditions.append("(p.tabmin_group = ? OR p.profession = ?)")
+                scope_parameters.extend([group, profession])
+            else:
+                if group:
+                    scope_conditions.append("p.tabmin_group = ?")
+                    scope_parameters.append(group)
+                if profession:
+                    scope_conditions.append("p.profession = ?")
+                    scope_parameters.append(profession)
+
+        cursor.execute(f"""
             INSERT INTO tabmin_member_evaluations
             (participant_id, evaluator_role, evaluator_id, evaluator_name, tabmin_group,
              score_kehadiran, score_partisipasi, score_sikap, notes, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            SELECT p.id, ?, ?, ?, p.tabmin_group, ?, ?, ?, ?, CURRENT_TIMESTAMP
+            FROM participants p
+            WHERE {" AND ".join(scope_conditions)}
             ON CONFLICT(participant_id, evaluator_role, evaluator_name) DO UPDATE SET
                 score_kehadiran = excluded.score_kehadiran,
                 score_partisipasi = excluded.score_partisipasi,
                 score_sikap = excluded.score_sikap,
                 notes = excluded.notes,
                 updated_at = CURRENT_TIMESTAMP
-        """, (data.participant_id, evaluator_role, evaluator_id, evaluator_name, p["tabmin_group"],
-              data.score_kehadiran, data.score_partisipasi, data.score_sikap, data.notes))
+        """, (evaluator_role, evaluator_id, evaluator_name,
+              data.score_kehadiran, data.score_partisipasi, data.score_sikap, data.notes,
+              *scope_parameters))
 
-        return {"success": True, "message": f"Penilaian untuk {p['name']} berhasil disimpan."}
+        if cursor.rowcount == 0:
+            cursor.execute(
+                "SELECT id, name, profession, tabmin_group FROM participants WHERE id = ?",
+                (data.participant_id,),
+            )
+            participant = cursor.fetchone()
+            if not participant:
+                raise HTTPException(status_code=404, detail="Peserta tidak ditemukan.")
+            ensure_participant_scope(user, participant)
+
+        return {"success": True, "message": "Penilaian anggota berhasil disimpan."}
 
 @router.get("/tabmin-member/my-evaluations")
 def get_my_tabmin_evaluations(user: dict = Depends(get_current_user)):
