@@ -38,6 +38,8 @@ const FormTabmin = {
     await this.loadParticipants();
     if (this.activeSubTab === 'product') {
       await this.loadProductScore();
+    } else if (this.selectedParticipantId) {
+      await this.loadMemberScore(this.selectedParticipantId);
     }
     this.render();
   },
@@ -55,10 +57,61 @@ const FormTabmin = {
     }
   },
 
+  async loadMemberScore(participantId) {
+    this.memberScores = {
+      kehadiran: 5,
+      partisipasi: 5,
+      sikap: 5,
+      notes: ''
+    };
+
+    if (!participantId) return;
+
+    try {
+      const res = await API.get('/api/eval/tabmin-member/my-evaluations');
+      if (this.selectedParticipantId !== participantId) return;
+
+      const role = App.currentUser.role;
+      const evaluatorRole = ['hrd_kelompok', 'hrd_kelompok_ketua', 'hrd_kepala', 'hrd_all', 'teknisi'].includes(role)
+        ? 'hrd'
+        : (role === 'pjk' ? 'pjk' : 'peer');
+      const evaluation = (res.evaluations || []).find(item =>
+        item.participant_id === participantId && item.evaluator_role === evaluatorRole
+      );
+
+      if (evaluation) {
+        this.memberScores = {
+          kehadiran: evaluation.score_kehadiran,
+          partisipasi: evaluation.score_partisipasi,
+          sikap: evaluation.score_sikap,
+          notes: evaluation.notes || ''
+        };
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal memuat penilaian anggota: ' + err.message, 'error');
+    }
+  },
+
   async loadProductScore() {
+    const group = this.selectedGroup;
+    this.productScores = {
+      reporter: 5,
+      fotografer: 5,
+      ilustrator: 5,
+      layouter: 5,
+      marcomm: 5,
+      notes: ''
+    };
+
     try {
       const res = await API.get('/api/eval/tabmin-product');
-      const prod = (res.products || []).find(p => p.tabmin_group === this.selectedGroup);
+      if (this.selectedGroup !== group) return;
+
+      const evaluatorName = App.currentUser.full_name || App.currentUser.username;
+      const prod = (res.products || []).find(p =>
+        p.tabmin_group === group && p.evaluator_name === evaluatorName
+      );
       if (prod) {
         this.productScores = {
           reporter: prod.score_reporter,
@@ -71,6 +124,7 @@ const FormTabmin = {
       }
     } catch (err) {
       console.error(err);
+      showToast('Gagal memuat penilaian produk: ' + err.message, 'error');
     }
   },
 
@@ -327,17 +381,24 @@ const FormTabmin = {
     this.render();
   },
 
-  setGroup(g) {
+  async setGroup(g) {
     this.selectedGroup = g;
-    this.loadParticipants().then(() => {
-      if (this.activeSubTab === 'product') this.loadProductScore();
-      this.render();
-    });
+    await this.loadParticipants();
+    if (this.activeSubTab === 'product') {
+      await this.loadProductScore();
+    } else if (this.selectedParticipantId) {
+      await this.loadMemberScore(this.selectedParticipantId);
+    }
+    this.render();
   },
 
-  setSubTab(tab) {
+  async setSubTab(tab) {
     this.activeSubTab = tab;
-    if (tab === 'product') this.loadProductScore();
+    if (tab === 'product') {
+      await this.loadProductScore();
+    } else if (this.selectedParticipantId) {
+      await this.loadMemberScore(this.selectedParticipantId);
+    }
     this.render();
   },
 
@@ -346,9 +407,12 @@ const FormTabmin = {
     this.render();
   },
 
-  selectParticipant(id) {
+  async selectParticipant(id) {
     this.selectedParticipantId = id;
+    const loading = this.loadMemberScore(id);
     this.render();
+    await loading;
+    if (this.selectedParticipantId === id) this.render();
   },
 
   async submitMember() {
