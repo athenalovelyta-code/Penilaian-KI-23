@@ -2,9 +2,68 @@
 
 const API = {
   baseUrl: '',
+  activeRequests: 0,
+
+  beginRequestFeedback(method, endpoint) {
+    if (typeof document === 'undefined' || !document.body) return () => {};
+
+    const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const activeElement = document.activeElement;
+    const control = isMutation
+      ? activeElement?.closest?.('button, input[type="submit"], select')
+      : null;
+    const wasDisabled = control ? control.disabled : false;
+    const originalContent = control instanceof HTMLButtonElement && !wasDisabled
+      ? control.innerHTML
+      : null;
+
+    if (control && !wasDisabled) {
+      control.disabled = true;
+      control.setAttribute('aria-busy', 'true');
+      if (originalContent !== null) {
+        control.innerHTML = `${originalContent} <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>`;
+      }
+    }
+
+    let indicator = document.getElementById('api-request-status');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.id = 'api-request-status';
+      indicator.className = 'api-request-status';
+      indicator.setAttribute('role', 'status');
+      indicator.setAttribute('aria-live', 'polite');
+      indicator.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i><span></span>';
+      document.body.appendChild(indicator);
+    }
+
+    const label = endpoint.startsWith('/api/auth/login')
+      ? 'Memverifikasi...'
+      : method === 'DELETE'
+        ? 'Menghapus...'
+        : isMutation
+          ? 'Menyimpan perubahan...'
+          : 'Memuat data...';
+    indicator.querySelector('span').textContent = label;
+    indicator.classList.add('is-visible');
+    this.activeRequests += 1;
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.activeRequests = Math.max(0, this.activeRequests - 1);
+      if (control?.isConnected && !wasDisabled) {
+        control.disabled = false;
+        control.removeAttribute('aria-busy');
+        if (originalContent !== null) control.innerHTML = originalContent;
+      }
+      if (this.activeRequests === 0) indicator.classList.remove('is-visible');
+    };
+  },
 
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
+    const method = (options.method || 'GET').toUpperCase();
     const headers = options.headers || {};
     
     // Check if session token in localStorage
@@ -18,6 +77,7 @@ const API = {
       options.body = JSON.stringify(options.body);
     }
 
+    const releaseFeedback = this.beginRequestFeedback(method, endpoint);
     try {
       const response = await fetch(url, { ...options, headers });
       if (response.status === 401) {
@@ -31,8 +91,8 @@ const API = {
         throw new Error(errorMsg);
       }
       return data;
-    } catch (err) {
-      throw err;
+    } finally {
+      releaseFeedback();
     }
   },
 

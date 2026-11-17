@@ -41,37 +41,40 @@ def login_panitia(req: LoginPanitiaRequest, response: Response):
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) AS total FROM users WHERE role != 'peserta'")
-        if cursor.fetchone()["total"] == 0:
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Database belum berisi akun panitia. Migrasikan data dari "
-                    "ki23_eval.db lokal ke database Turso, lalu coba lagi."
-                ),
+        cursor.execute(
+            """
+            SELECT * FROM (
+                SELECT * FROM users
+                WHERE role != 'peserta' AND password_hash = ?
+                UNION ALL
+                SELECT * FROM users
+                WHERE role != 'peserta' AND LOWER(TRIM(password)) = LOWER(?)
             )
-        cursor.execute("SELECT * FROM users WHERE role != 'peserta'")
+            ORDER BY id
+            """,
+            (hash_pw(pw), pw),
+        )
         panitia_users = cursor.fetchall()
+
+        if not panitia_users:
+            cursor.execute("SELECT COUNT(*) AS total FROM users WHERE role != 'peserta'")
+            if cursor.fetchone()["total"] == 0:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "Database belum berisi akun panitia. Migrasikan data dari "
+                        "ki23_eval.db lokal ke database Turso, lalu coba lagi."
+                    ),
+                )
         
         matching_user = None
         other_jabatan_user = None
 
         for u in panitia_users:
-            u_pw = (u.get("password") or "").strip()
-            u_hash = u.get("password_hash")
-            
-            is_match = False
-            if u_pw and u_pw.lower() == pw.lower():
-                is_match = True
-            elif u_hash and u_hash == hash_pw(pw):
-                is_match = True
-
-            if is_match:
-                if u["role"] in allowed_roles:
-                    matching_user = u
-                    break
-                else:
-                    other_jabatan_user = u
+            if u["role"] in allowed_roles:
+                matching_user = u
+                break
+            other_jabatan_user = u
 
         if not matching_user:
             if other_jabatan_user:
@@ -119,7 +122,7 @@ def login_panitia(req: LoginPanitiaRequest, response: Response):
             "is_panitia": True,
             "role_display": role_display
         }
-        token = create_session(user_data)
+        token = create_session(user_data, conn)
         response.set_cookie(key="session_token", value=token, httponly=False, samesite="lax")
         return {
             "success": True,
@@ -139,29 +142,46 @@ def login_peserta(req: LoginPesertaRequest, response: Response):
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) AS total FROM participants")
-        if cursor.fetchone()["total"] == 0:
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Database belum berisi data peserta. Migrasikan data dari "
-                    "ki23_eval.db lokal ke database Turso, lalu coba lagi."
-                ),
+        cursor.execute(
+            """
+            SELECT * FROM (
+                SELECT * FROM participants
+                WHERE LOWER(TRIM(profession)) = LOWER(?)
+                  AND LOWER(TRIM(tabmin_group)) = LOWER(?)
+                  AND password_hash = ?
+                UNION ALL
+                SELECT * FROM participants
+                WHERE LOWER(TRIM(profession)) = LOWER(?)
+                  AND LOWER(TRIM(tabmin_group)) = LOWER(?)
+                  AND LOWER(TRIM(password)) = LOWER(?)
             )
-        cursor.execute("SELECT * FROM participants WHERE LOWER(TRIM(profession)) = LOWER(?) AND LOWER(TRIM(tabmin_group)) = LOWER(?)", (prof, grp))
-        group_participants = cursor.fetchall()
-
-        matched_p = None
-        for p in group_participants:
-            p_pw = (p.get("password") or "").strip()
-            p_hash = p.get("password_hash")
-            if (p_pw and p_pw.lower() == pw.lower()) or (p_hash and p_hash == hash_pw(pw)):
-                matched_p = p
-                break
+            ORDER BY id
+            LIMIT 1
+            """,
+            (prof, grp, hash_pw(pw), prof, grp, pw),
+        )
+        matched_p = cursor.fetchone()
 
         if not matched_p:
-            # Check if password matches a participant in another group/profession to give a clear hint
-            cursor.execute("SELECT * FROM participants WHERE LOWER(TRIM(password)) = LOWER(?)", (pw,))
+            cursor.execute("SELECT COUNT(*) AS total FROM participants")
+            if cursor.fetchone()["total"] == 0:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "Database belum berisi data peserta. Migrasikan data dari "
+                        "ki23_eval.db lokal ke database Turso, lalu coba lagi."
+                    ),
+                )
+
+            cursor.execute(
+                """
+                SELECT name, profession, tabmin_group FROM participants
+                WHERE LOWER(TRIM(password)) = LOWER(?)
+                ORDER BY id
+                LIMIT 1
+                """,
+                (pw,),
+            )
             other_p = cursor.fetchone()
             if other_p:
                 raise HTTPException(
@@ -183,7 +203,7 @@ def login_peserta(req: LoginPesertaRequest, response: Response):
             "assigned_profession": matched_p["profession"],
             "is_panitia": False
         }
-        token = create_session(user_data)
+        token = create_session(user_data, conn)
         response.set_cookie(key="session_token", value=token, httponly=False, samesite="lax")
         return {
             "success": True,
@@ -211,7 +231,7 @@ def login(req: LoginRequest, response: Response):
             "assigned_group": user["assigned_group"],
             "assigned_profession": user["assigned_profession"],
         }
-        token = create_session(user_data)
+        token = create_session(user_data, conn)
         response.set_cookie(key="session_token", value=token, httponly=False, samesite="lax")
         return {"success": True, "token": token, "user": user_data}
 

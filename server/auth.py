@@ -8,9 +8,15 @@ from server.database import get_db
 def hash_pw(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
-def create_session(user_data: dict) -> str:
+def create_session(user_data: dict, conn=None) -> str:
     token = str(uuid.uuid4())
-    with get_db() as conn:
+    if conn is None:
+        with get_db() as db:
+            db.execute(
+                "INSERT INTO sessions (session_token, user_data, auth_method) VALUES (?, ?, ?)",
+                (token, json.dumps(user_data), "password"),
+            )
+    else:
         conn.execute(
             "INSERT INTO sessions (session_token, user_data, auth_method) VALUES (?, ?, ?)",
             (token, json.dumps(user_data), "password"),

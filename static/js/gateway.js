@@ -97,6 +97,7 @@ const Gateway = {
   },
 
   async submitLoginPanitia() {
+    if (this.loadingPanitia) return;
     const pwInput = document.getElementById('panitia-password-input');
     const pw = (pwInput ? pwInput.value : this.panitiaPassword).trim();
 
@@ -115,6 +116,7 @@ const Gateway = {
         password: pw
       });
 
+      this.loadingPanitia = false;
       localStorage.setItem('ki23_token', res.token);
       App.currentUser = res.user;
       App.renderNavbar();
@@ -149,6 +151,7 @@ const Gateway = {
   },
 
   async submitLoginPeserta() {
+    if (this.loadingPeserta) return;
     const pwInput = document.getElementById('peserta-password-input');
     const pw = (pwInput ? pwInput.value : this.pesertaPassword).trim();
 
@@ -168,6 +171,7 @@ const Gateway = {
         password: pw
       });
 
+      this.loadingPeserta = false;
       localStorage.setItem('ki23_token', res.token);
       App.currentUser = res.user;
       App.renderNavbar();

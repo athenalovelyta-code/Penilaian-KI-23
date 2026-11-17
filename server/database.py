@@ -175,6 +175,21 @@ def init_db():
             cursor.execute("ALTER TABLE users ADD COLUMN password TEXT")
             print("Migrated: Added 'password' column to users table.")
 
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_users_password_hash ON users(password_hash)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_users_password_normalized "
+            "ON users(LOWER(TRIM(password)))"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_participants_password_hash "
+            "ON participants(password_hash)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_participants_password_normalized "
+            "ON participants(LOWER(TRIM(password)))"
+        )
 
         # 3. Tabmin Member Evaluations
         # Evaluators: hrd, pjk, peer

@@ -18,6 +18,24 @@ def hash_pw(password: str) -> str:
 def norm_str(s: str) -> str:
     return re.sub(r'[^a-zA-Z0-9]', '', str(s).lower())
 
+
+EXCLUDED_PARTICIPANT_NAMES = {
+    norm_str(name)
+    for name in (
+        "Siti Nurpadilah",
+        "Shofie Kamalia",
+        "Naufal Shidiq Al Fachri",
+        "Patricia Chandra",
+        "Glenn Kevin Llzcel",
+        "Muhammad Raffi Kainillah",
+        "Nafisah Nur Abidah",
+        "Naufal Allam Taqi",
+        "Nayla Khairi Tsabitah",
+        "Zasqia Azzahra",
+    )
+}
+
+
 def seed_database(seed_sample_scores=True):
     init_db()
     
@@ -191,6 +209,9 @@ def parse_and_insert_excel(conn):
             pwd = ''
             if nm in prof_by_norm:
                 canonical_name, prof, pwd = prof_by_norm[nm]
+
+            if norm_str(canonical_name) in EXCLUDED_PARTICIPANT_NAMES:
+                continue
                 
             key = (norm_str(canonical_name), gname)
             if key in seen_keys:

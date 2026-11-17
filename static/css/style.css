@@ -435,6 +435,33 @@ a {
   outline: none;
 }
 
+.btn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.api-request-status {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 3001;
+  display: none;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  color: var(--text-main);
+  background: #1e293b;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.88rem;
+  pointer-events: none;
+}
+
+.api-request-status.is-visible {
+  display: flex;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, var(--primary) 0%, #4338ca 100%);
   color: white;
