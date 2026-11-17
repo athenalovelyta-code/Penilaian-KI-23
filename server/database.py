@@ -176,7 +176,7 @@ def init_db():
             print("Migrated: Added 'password' column to users table.")
 
 
-        # 3. Tabmin Member Evaluations (3 general indicators)
+        # 3. Tabmin Member Evaluations
         # Evaluators: hrd, pjk, peer
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS tabmin_member_evaluations (
@@ -189,11 +189,30 @@ def init_db():
             score_kehadiran INTEGER NOT NULL CHECK(score_kehadiran BETWEEN 1 AND 5),
             score_partisipasi INTEGER NOT NULL CHECK(score_partisipasi BETWEEN 1 AND 5),
             score_sikap INTEGER NOT NULL CHECK(score_sikap BETWEEN 1 AND 5),
+            score_kontribusi INTEGER CHECK(score_kontribusi BETWEEN 1 AND 5),
+            score_tanggung_jawab INTEGER CHECK(score_tanggung_jawab BETWEEN 1 AND 5),
+            score_kerjasama INTEGER CHECK(score_kerjasama BETWEEN 1 AND 5),
+            score_komunikasi INTEGER CHECK(score_komunikasi BETWEEN 1 AND 5),
+            score_komitmen INTEGER CHECK(score_komitmen BETWEEN 1 AND 5),
             notes TEXT,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(participant_id, evaluator_role, evaluator_name)
         );
         """)
+        cursor.execute("PRAGMA table_info(tabmin_member_evaluations)")
+        evaluation_cols = [col["name"] for col in cursor.fetchall()]
+        for column in (
+            "score_kontribusi",
+            "score_tanggung_jawab",
+            "score_kerjasama",
+            "score_komunikasi",
+            "score_komitmen",
+        ):
+            if column not in evaluation_cols:
+                cursor.execute(
+                    f"ALTER TABLE tabmin_member_evaluations ADD COLUMN {column} INTEGER "
+                    f"CHECK({column} BETWEEN 1 AND 5)"
+                )
 
         # 4. Tabmin Product Evaluations (5 profession aspects for Kelompok 1-6)
         cursor.execute("""

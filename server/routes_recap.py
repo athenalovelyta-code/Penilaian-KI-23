@@ -123,7 +123,24 @@ def get_full_recap_data(
             skor_peer = None
             peer_count = len(t_evals["peer"])
             if peer_count > 0:
-                peer_avgs = [(pr["score_kehadiran"] + pr["score_partisipasi"] + pr["score_sikap"]) / 3.0 for pr in t_evals["peer"]]
+                peer_avgs = [
+                    sum(pr[key] for key in (
+                        "score_kontribusi",
+                        "score_tanggung_jawab",
+                        "score_kerjasama",
+                        "score_komunikasi",
+                        "score_komitmen",
+                    )) / 5.0
+                    if all(pr.get(key) is not None for key in (
+                        "score_kontribusi",
+                        "score_tanggung_jawab",
+                        "score_kerjasama",
+                        "score_komunikasi",
+                        "score_komitmen",
+                    ))
+                    else (pr["score_kehadiran"] + pr["score_partisipasi"] + pr["score_sikap"]) / 3.0
+                    for pr in t_evals["peer"]
+                ]
                 skor_peer = round(sum(peer_avgs) / peer_count, 2)
 
             # Formula: Nilai Akhir Anggota = Rata-Rata(Skor HRD + Skor PJK + Rata-Rata Skor Peer)

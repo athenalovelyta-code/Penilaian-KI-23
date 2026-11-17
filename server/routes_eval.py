@@ -9,9 +9,14 @@ router = APIRouter(prefix="/api/eval", tags=["Evaluation"])
 # Models
 class TabminMemberEvalInput(BaseModel):
     participant_id: int
-    score_kehadiran: int = Field(..., ge=1, le=5)
-    score_partisipasi: int = Field(..., ge=1, le=5)
-    score_sikap: int = Field(..., ge=1, le=5)
+    score_kehadiran: Optional[int] = Field(None, ge=1, le=5)
+    score_partisipasi: Optional[int] = Field(None, ge=1, le=5)
+    score_sikap: Optional[int] = Field(None, ge=1, le=5)
+    score_kontribusi: Optional[int] = Field(None, ge=1, le=5)
+    score_tanggung_jawab: Optional[int] = Field(None, ge=1, le=5)
+    score_kerjasama: Optional[int] = Field(None, ge=1, le=5)
+    score_komunikasi: Optional[int] = Field(None, ge=1, le=5)
+    score_komitmen: Optional[int] = Field(None, ge=1, le=5)
     notes: Optional[str] = None
 
 class TabminProductEvalInput(BaseModel):
@@ -172,9 +177,26 @@ def save_tabmin_member_eval(
         # Peer cannot evaluate self
         if user.get("participant_id") == data.participant_id:
             raise HTTPException(status_code=400, detail="Peserta tidak dapat menilai diri sendiri.")
+        peer_scores = (
+            data.score_kontribusi,
+            data.score_tanggung_jawab,
+            data.score_kerjasama,
+            data.score_komunikasi,
+            data.score_komitmen,
+        )
+        if any(score is None for score in peer_scores):
+            raise HTTPException(status_code=422, detail="Peer evaluation harus mengisi kelima kriteria penilaian.")
     else:
         raise HTTPException(status_code=403, detail=f"Role '{role}' tidak diizinkan menginput penilaian anggota Tabmin.")
 
+    if evaluator_role != "peer" and any(
+        score is None
+        for score in (data.score_kehadiran, data.score_partisipasi, data.score_sikap)
+    ):
+        raise HTTPException(status_code=422, detail="Penilaian anggota harus mengisi semua kriteria.")
+
+    if role == "peserta" and len(data.notes or "") > 300:
+        raise HTTPException(status_code=422, detail="Feedback peer maksimal 300 karakter.")
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -203,18 +225,29 @@ def save_tabmin_member_eval(
         cursor.execute(f"""
             INSERT INTO tabmin_member_evaluations
             (participant_id, evaluator_role, evaluator_id, evaluator_name, tabmin_group,
-             score_kehadiran, score_partisipasi, score_sikap, notes, updated_at)
-            SELECT p.id, ?, ?, ?, p.tabmin_group, ?, ?, ?, ?, CURRENT_TIMESTAMP
+             score_kehadiran, score_partisipasi, score_sikap, score_kontribusi,
+             score_tanggung_jawab, score_kerjasama, score_komunikasi, score_komitmen,
+             notes, updated_at)
+            SELECT p.id, ?, ?, ?, p.tabmin_group, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
             FROM participants p
             WHERE {" AND ".join(scope_conditions)}
             ON CONFLICT(participant_id, evaluator_role, evaluator_name) DO UPDATE SET
                 score_kehadiran = excluded.score_kehadiran,
                 score_partisipasi = excluded.score_partisipasi,
                 score_sikap = excluded.score_sikap,
+                score_kontribusi = excluded.score_kontribusi,
+                score_tanggung_jawab = excluded.score_tanggung_jawab,
+                score_kerjasama = excluded.score_kerjasama,
+                score_komunikasi = excluded.score_komunikasi,
+                score_komitmen = excluded.score_komitmen,
                 notes = excluded.notes,
                 updated_at = CURRENT_TIMESTAMP
         """, (evaluator_role, evaluator_id, evaluator_name,
-              data.score_kehadiran, data.score_partisipasi, data.score_sikap, data.notes,
+              data.score_kehadiran if data.score_kehadiran is not None else data.score_komitmen,
+              data.score_partisipasi if data.score_partisipasi is not None else data.score_kontribusi,
+              data.score_sikap if data.score_sikap is not None else data.score_tanggung_jawab,
+              data.score_kontribusi, data.score_tanggung_jawab, data.score_kerjasama,
+              data.score_komunikasi, data.score_komitmen, data.notes,
               *scope_parameters))
 
         if cursor.rowcount == 0:

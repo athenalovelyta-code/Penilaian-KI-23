@@ -9,12 +9,15 @@ const FormPeer = {
 
   // Current evaluation scores
   scores: {
-    kehadiran: 5,
-    partisipasi: 5,
-    sikap: 5,
+    kontribusi: 5,
+    tanggung_jawab: 5,
+    kerjasama: 5,
+    komunikasi: 5,
+    komitmen: 5,
     notes: ''
   },
   submittedTeammates: new Set(),
+  teammateEvaluations: new Map(),
 
   async init() {
     const user = App.currentUser;
@@ -36,7 +39,9 @@ const FormPeer = {
       
       // Load already submitted ratings for this peer
       const myEvals = await API.get('/api/eval/tabmin-member/my-evaluations');
-      this.submittedTeammates = new Set((myEvals.evaluations || []).map(e => e.participant_id));
+      const evaluations = myEvals.evaluations || [];
+      this.submittedTeammates = new Set(evaluations.map(e => e.participant_id));
+      this.teammateEvaluations = new Map(evaluations.map(e => [e.participant_id, e]));
     } catch (err) {
       console.error(err);
     }
@@ -120,49 +125,75 @@ const FormPeer = {
               `}
             </div>
 
-            <!-- Kehadiran -->
+            <!-- Kontribusi -->
             <div class="likert-group">
-              <div class="likert-label">1. Kehadiran & Ketepatan Waktu</div>
-              <div class="likert-desc">Bagaimana kedisiplinan waktu kehadiran rekan Anda saat diskusi kelompok?</div>
+              <div class="likert-label">1. Kontribusi</div>
+              <div class="likert-desc">Seberapa besar kontribusi rekan Anda terhadap tugas dan pencapaian kelompok?</div>
               <div class="likert-options">
-                ${this.renderLikertBtn('kehadiran', 1, 'Sering terlambat')}
-                ${this.renderLikertBtn('kehadiran', 2, 'Kurang tepat waktu')}
-                ${this.renderLikertBtn('kehadiran', 3, 'Cukup tertib')}
-                ${this.renderLikertBtn('kehadiran', 4, 'Tepat waktu')}
-                ${this.renderLikertBtn('kehadiran', 5, 'Sangat tepat & siap')}
+                ${this.renderLikertBtn('kontribusi', 1, 'Sangat kurang')}
+                ${this.renderLikertBtn('kontribusi', 2, 'Kurang')}
+                ${this.renderLikertBtn('kontribusi', 3, 'Cukup')}
+                ${this.renderLikertBtn('kontribusi', 4, 'Baik')}
+                ${this.renderLikertBtn('kontribusi', 5, 'Sangat baik')}
               </div>
             </div>
 
-            <!-- Partisipasi -->
+            <!-- Tanggung jawab -->
             <div class="likert-group">
-              <div class="likert-label">2. Partisipasi & Keaktifan Kerjasama</div>
-              <div class="likert-desc">Seberapa aktif rekan Anda memberikan kontribusi tugas dan proaktif berdiskusi?</div>
+              <div class="likert-label">2. Tanggung Jawab</div>
+              <div class="likert-desc">Seberapa konsisten rekan Anda menyelesaikan tugas dan tanggung jawabnya?</div>
               <div class="likert-options">
-                ${this.renderLikertBtn('partisipasi', 1, 'Pasif / menghilang')}
-                ${this.renderLikertBtn('partisipasi', 2, 'Kurang berkontribusi')}
-                ${this.renderLikertBtn('partisipasi', 3, 'Cukup membantu')}
-                ${this.renderLikertBtn('partisipasi', 4, 'Aktif & kooperatif')}
-                ${this.renderLikertBtn('partisipasi', 5, 'Sangat inisiatif')}
+                ${this.renderLikertBtn('tanggung_jawab', 1, 'Sangat kurang')}
+                ${this.renderLikertBtn('tanggung_jawab', 2, 'Kurang')}
+                ${this.renderLikertBtn('tanggung_jawab', 3, 'Cukup')}
+                ${this.renderLikertBtn('tanggung_jawab', 4, 'Baik')}
+                ${this.renderLikertBtn('tanggung_jawab', 5, 'Sangat baik')}
               </div>
             </div>
 
-            <!-- Sikap -->
+            <!-- Kerja sama -->
             <div class="likert-group">
-              <div class="likert-label">3. Sikap, Komunikasi & Kedisiplinan</div>
-              <div class="likert-desc">Sopan santun, keterbukaan komunikasi, dan tanggung jawab terhadap pembagian tugas.</div>
+              <div class="likert-label">3. Kerja Sama</div>
+              <div class="likert-desc">Seberapa baik rekan Anda bekerja sama dan mendukung anggota kelompok lainnya?</div>
               <div class="likert-options">
-                ${this.renderLikertBtn('sikap', 1, 'Kurang menyenangkan')}
-                ${this.renderLikertBtn('sikap', 2, 'Kurang komunikatif')}
-                ${this.renderLikertBtn('sikap', 3, 'Cukup baik')}
-                ${this.renderLikertBtn('sikap', 4, 'Ramah & tanggung jawab')}
-                ${this.renderLikertBtn('sikap', 5, 'Sangat menyenangkan & suportif')}
+                ${this.renderLikertBtn('kerjasama', 1, 'Sangat kurang')}
+                ${this.renderLikertBtn('kerjasama', 2, 'Kurang')}
+                ${this.renderLikertBtn('kerjasama', 3, 'Cukup')}
+                ${this.renderLikertBtn('kerjasama', 4, 'Baik')}
+                ${this.renderLikertBtn('kerjasama', 5, 'Sangat baik')}
+              </div>
+            </div>
+
+            <!-- Komunikasi -->
+            <div class="likert-group">
+              <div class="likert-label">4. Komunikasi</div>
+              <div class="likert-desc">Seberapa jelas, terbuka, dan responsif komunikasi rekan Anda?</div>
+              <div class="likert-options">
+                ${this.renderLikertBtn('komunikasi', 1, 'Sangat kurang')}
+                ${this.renderLikertBtn('komunikasi', 2, 'Kurang')}
+                ${this.renderLikertBtn('komunikasi', 3, 'Cukup')}
+                ${this.renderLikertBtn('komunikasi', 4, 'Baik')}
+                ${this.renderLikertBtn('komunikasi', 5, 'Sangat baik')}
+              </div>
+            </div>
+
+            <!-- Komitmen -->
+            <div class="likert-group">
+              <div class="likert-label">5. Komitmen</div>
+              <div class="likert-desc">Seberapa konsisten rekan Anda menunjukkan komitmen terhadap kelompok?</div>
+              <div class="likert-options">
+                ${this.renderLikertBtn('komitmen', 1, 'Sangat kurang')}
+                ${this.renderLikertBtn('komitmen', 2, 'Kurang')}
+                ${this.renderLikertBtn('komitmen', 3, 'Cukup')}
+                ${this.renderLikertBtn('komitmen', 4, 'Baik')}
+                ${this.renderLikertBtn('komitmen', 5, 'Sangat baik')}
               </div>
             </div>
 
             <!-- Notes -->
             <div style="margin-bottom: 24px;">
-              <label style="font-weight: 600; font-size: 0.9rem; color: white; display: block; margin-bottom: 6px;">Pesan / Feedback Positif untuk Rekan (Opsional)</label>
-              <textarea class="search-input" style="width: 100%; height: 75px; resize: vertical;" placeholder="Tuliskan apresiasi atau masukan yang membangun..." oninput="FormPeer.scores.notes = this.value">${this.scores.notes}</textarea>
+              <label style="font-weight: 600; font-size: 0.9rem; color: white; display: block; margin-bottom: 6px;">Feedback Singkat untuk Rekan (Opsional)</label>
+              <textarea class="search-input" maxlength="300" style="width: 100%; height: 75px; resize: vertical;" placeholder="Tuliskan feedback singkat dan membangun (maks. 300 karakter)..." oninput="FormPeer.scores.notes = this.value">${this.scores.notes}</textarea>
             </div>
 
             <div style="display: flex; gap: 12px;">
@@ -198,15 +229,33 @@ const FormPeer = {
 
   selectTeammateIndex(idx) {
     this.activeTeammateIndex = idx;
-    this.scores = { kehadiran: 5, partisipasi: 5, sikap: 5, notes: '' };
+    const teammate = this.teammates[idx];
+    const evaluation = teammate && this.teammateEvaluations.get(teammate.id);
+    this.scores = evaluation ? {
+      kontribusi: evaluation.score_kontribusi || 5,
+      tanggung_jawab: evaluation.score_tanggung_jawab || 5,
+      kerjasama: evaluation.score_kerjasama || 5,
+      komunikasi: evaluation.score_komunikasi || 5,
+      komitmen: evaluation.score_komitmen || 5,
+      notes: evaluation.notes || ''
+    } : this.emptyScores();
     this.render();
+  },
+
+  emptyScores() {
+    return {
+      kontribusi: 5,
+      tanggung_jawab: 5,
+      kerjasama: 5,
+      komunikasi: 5,
+      komitmen: 5,
+      notes: ''
+    };
   },
 
   nextTeammate() {
     if (this.activeTeammateIndex < this.teammates.length - 1) {
-      this.activeTeammateIndex += 1;
-      this.scores = { kehadiran: 5, partisipasi: 5, sikap: 5, notes: '' };
-      this.render();
+      this.selectTeammateIndex(this.activeTeammateIndex + 1);
     }
   },
 
@@ -217,13 +266,23 @@ const FormPeer = {
     try {
       await API.post('/api/eval/tabmin-member', {
         participant_id: currentTeammate.id,
-        score_kehadiran: this.scores.kehadiran,
-        score_partisipasi: this.scores.partisipasi,
-        score_sikap: this.scores.sikap,
+        score_kontribusi: this.scores.kontribusi,
+        score_tanggung_jawab: this.scores.tanggung_jawab,
+        score_kerjasama: this.scores.kerjasama,
+        score_komunikasi: this.scores.komunikasi,
+        score_komitmen: this.scores.komitmen,
         notes: this.scores.notes
       });
 
       this.submittedTeammates.add(currentTeammate.id);
+      this.teammateEvaluations.set(currentTeammate.id, {
+        score_kontribusi: this.scores.kontribusi,
+        score_tanggung_jawab: this.scores.tanggung_jawab,
+        score_kerjasama: this.scores.kerjasama,
+        score_komunikasi: this.scores.komunikasi,
+        score_komitmen: this.scores.komitmen,
+        notes: this.scores.notes
+      });
       showToast(`Penilaian untuk ${currentTeammate.name} berhasil disimpan!`, 'success');
 
       // Auto advance to next unsubmitted teammate if available
