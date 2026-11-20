@@ -65,6 +65,12 @@ const API = {
     const url = `${this.baseUrl}${endpoint}`;
     const method = (options.method || 'GET').toUpperCase();
     const headers = options.headers || {};
+    const controller = typeof AbortController !== 'undefined'
+      ? new AbortController()
+      : null;
+    const timeoutId = controller
+      ? setTimeout(() => controller.abort(), 30000)
+      : null;
     
     // Check if session token in localStorage
     const token = localStorage.getItem('ki23_token');
@@ -79,7 +85,11 @@ const API = {
 
     const releaseFeedback = this.beginRequestFeedback(method, endpoint);
     try {
-      const response = await fetch(url, { ...options, headers });
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        ...(controller ? { signal: controller.signal } : {})
+      });
       if (response.status === 401) {
         // Unauthorized
         console.warn('Session expired or unauthorized');
@@ -91,7 +101,13 @@ const API = {
         throw new Error(errorMsg);
       }
       return data;
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        throw new Error('Permintaan terlalu lama. Periksa koneksi database atau coba lagi.');
+      }
+      throw err;
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       releaseFeedback();
     }
   },
