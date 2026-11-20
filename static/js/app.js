@@ -214,7 +214,7 @@ const App = {
         wakil_kepala: ['recap'],
         supervisor: ['recap'],
         hrd_kepala: ['recap', 'profesi', 'tabmin'],
-        hrd_profesi: ['recap', 'profesi'],
+        hrd_profesi: ['recap', 'profesi', 'tabmin'],
         hrd_kelompok: ['recap', 'tabmin'],
         hrd_kelompok_ketua: ['recap', 'tabmin'],
         hrd_all: ['recap', 'profesi', 'tabmin'],
