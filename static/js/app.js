@@ -138,6 +138,9 @@ const App = {
           <div class="nav-link ${this.activeView === 'profesi' ? 'active' : ''}" onclick="App.navigate('profesi')">
             <i class="fas fa-graduation-cap"></i> Penilaian Profesi
           </div>
+          <div class="nav-link ${this.activeView === 'tabmin' ? 'active' : ''}" onclick="App.navigate('tabmin')">
+            <i class="fas fa-users-cog"></i> Penilaian Individu Tabmin
+          </div>
         `;
       } else if (role === 'hrd_kelompok' || role === 'hrd_kelompok_ketua') {
         linksHtml += `

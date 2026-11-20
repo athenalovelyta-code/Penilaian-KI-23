@@ -209,6 +209,11 @@ def init_db():
             score_kerjasama INTEGER CHECK(score_kerjasama BETWEEN 1 AND 5),
             score_komunikasi INTEGER CHECK(score_komunikasi BETWEEN 1 AND 5),
             score_komitmen INTEGER CHECK(score_komitmen BETWEEN 1 AND 5),
+            score_komitmen_kedisiplinan INTEGER CHECK(score_komitmen_kedisiplinan BETWEEN 0 AND 5),
+            score_kerjasama_kolaborasi INTEGER CHECK(score_kerjasama_kolaborasi BETWEEN 0 AND 5),
+            score_inisiatif_keaktifan INTEGER CHECK(score_inisiatif_keaktifan BETWEEN 0 AND 5),
+            score_tanggung_jawab_individu INTEGER CHECK(score_tanggung_jawab_individu BETWEEN 0 AND 5),
+            score_sikap_evaluasi INTEGER CHECK(score_sikap_evaluasi BETWEEN 0 AND 5),
             notes TEXT,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(participant_id, evaluator_role, evaluator_name)
@@ -228,6 +233,18 @@ def init_db():
                     f"ALTER TABLE tabmin_member_evaluations ADD COLUMN {column} INTEGER "
                     f"CHECK({column} BETWEEN 1 AND 5)"
                 )
+        for column in (
+            "score_komitmen_kedisiplinan",
+            "score_kerjasama_kolaborasi",
+            "score_inisiatif_keaktifan",
+            "score_tanggung_jawab_individu",
+            "score_sikap_evaluasi",
+        ):
+            if column not in evaluation_cols:
+                cursor.execute(
+                    f"ALTER TABLE tabmin_member_evaluations ADD COLUMN {column} INTEGER "
+                    f"CHECK({column} BETWEEN 0 AND 5)"
+                )
 
         # 4. Tabmin Product Evaluations (5 profession aspects for Kelompok 1-6)
         cursor.execute("""
@@ -244,6 +261,22 @@ def init_db():
             notes TEXT,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(tabmin_group, evaluator_name)
+        );
+        """)
+
+        # 4b. Collective Tabmin evaluations, filled by Wali Kelas per profession
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tabmin_collective_evaluations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tabmin_session INTEGER NOT NULL CHECK(tabmin_session >= 1),
+            tabmin_group TEXT,
+            profession TEXT NOT NULL,
+            score_overall INTEGER NOT NULL CHECK(score_overall BETWEEN 0 AND 5),
+            notes TEXT,
+            evaluator_id INTEGER,
+            evaluator_name TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(tabmin_session, profession)
         );
         """)
 

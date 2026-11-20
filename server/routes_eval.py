@@ -9,9 +9,14 @@ router = APIRouter(prefix="/api/eval", tags=["Evaluation"])
 # Models
 class TabminMemberEvalInput(BaseModel):
     participant_id: int
-    score_kehadiran: Optional[int] = Field(None, ge=1, le=5)
-    score_partisipasi: Optional[int] = Field(None, ge=1, le=5)
-    score_sikap: Optional[int] = Field(None, ge=1, le=5)
+    score_kehadiran: Optional[int] = Field(None, ge=0, le=5)
+    score_partisipasi: Optional[int] = Field(None, ge=0, le=5)
+    score_sikap: Optional[int] = Field(None, ge=0, le=5)
+    score_komitmen_kedisiplinan: Optional[int] = Field(None, ge=0, le=5)
+    score_kerjasama_kolaborasi: Optional[int] = Field(None, ge=0, le=5)
+    score_inisiatif_keaktifan: Optional[int] = Field(None, ge=0, le=5)
+    score_tanggung_jawab_individu: Optional[int] = Field(None, ge=0, le=5)
+    score_sikap_evaluasi: Optional[int] = Field(None, ge=0, le=5)
     score_kontribusi: Optional[int] = Field(None, ge=1, le=5)
     score_tanggung_jawab: Optional[int] = Field(None, ge=1, le=5)
     score_kerjasama: Optional[int] = Field(None, ge=1, le=5)
@@ -26,6 +31,13 @@ class TabminProductEvalInput(BaseModel):
     score_ilustrator: int = Field(..., ge=1, le=5)
     score_layouter: int = Field(..., ge=1, le=5)
     score_marcomm: int = Field(..., ge=1, le=5)
+    notes: Optional[str] = None
+
+class TabminCollectiveEvalInput(BaseModel):
+    tabmin_session: int = Field(..., ge=1)
+    profession: str
+    tabmin_group: Optional[str] = None
+    score_overall: int = Field(..., ge=0, le=5)
     notes: Optional[str] = None
 
 class ProfesiGeneralEvalInput(BaseModel):
@@ -168,10 +180,12 @@ def save_tabmin_member_eval(
     evaluator_id = user.get("id") if isinstance(user.get("id"), int) else None
     
     # Access checks
-    if role in ["hrd_kelompok", "hrd_kelompok_ketua", "hrd_kepala", "hrd_all", "teknisi"]:
+    if role in ["hrd_kelompok", "hrd_kelompok_ketua", "hrd_kepala", "hrd_profesi", "hrd_all", "teknisi"]:
         evaluator_role = "hrd"
+        evaluator_name = "shared_hrd_tabmin_member"
     elif role == "pjk":
         evaluator_role = "pjk"
+        evaluator_name = "shared_pjk_tabmin_member"
     elif role == "peserta":
         evaluator_role = "peer"
         # Peer cannot evaluate self
@@ -227,8 +241,10 @@ def save_tabmin_member_eval(
             (participant_id, evaluator_role, evaluator_id, evaluator_name, tabmin_group,
              score_kehadiran, score_partisipasi, score_sikap, score_kontribusi,
              score_tanggung_jawab, score_kerjasama, score_komunikasi, score_komitmen,
-             notes, updated_at)
-            SELECT p.id, ?, ?, ?, p.tabmin_group, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
+             score_komitmen_kedisiplinan, score_kerjasama_kolaborasi,
+             score_inisiatif_keaktifan, score_tanggung_jawab_individu,
+             score_sikap_evaluasi, notes, updated_at)
+            SELECT p.id, ?, ?, ?, p.tabmin_group, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
             FROM participants p
             WHERE {" AND ".join(scope_conditions)}
             ON CONFLICT(participant_id, evaluator_role, evaluator_name) DO UPDATE SET
@@ -240,6 +256,11 @@ def save_tabmin_member_eval(
                 score_kerjasama = excluded.score_kerjasama,
                 score_komunikasi = excluded.score_komunikasi,
                 score_komitmen = excluded.score_komitmen,
+                score_komitmen_kedisiplinan = excluded.score_komitmen_kedisiplinan,
+                score_kerjasama_kolaborasi = excluded.score_kerjasama_kolaborasi,
+                score_inisiatif_keaktifan = excluded.score_inisiatif_keaktifan,
+                score_tanggung_jawab_individu = excluded.score_tanggung_jawab_individu,
+                score_sikap_evaluasi = excluded.score_sikap_evaluasi,
                 notes = excluded.notes,
                 updated_at = CURRENT_TIMESTAMP
         """, (evaluator_role, evaluator_id, evaluator_name,
@@ -247,7 +268,13 @@ def save_tabmin_member_eval(
               data.score_partisipasi if data.score_partisipasi is not None else data.score_kontribusi,
               data.score_sikap if data.score_sikap is not None else data.score_tanggung_jawab,
               data.score_kontribusi, data.score_tanggung_jawab, data.score_kerjasama,
-              data.score_komunikasi, data.score_komitmen, data.notes,
+              data.score_komunikasi, data.score_komitmen,
+              data.score_komitmen_kedisiplinan,
+              data.score_kerjasama_kolaborasi,
+              data.score_inisiatif_keaktifan,
+              data.score_tanggung_jawab_individu,
+              data.score_sikap_evaluasi,
+              data.notes,
               *scope_parameters))
 
         if cursor.rowcount == 0:
@@ -264,8 +291,11 @@ def save_tabmin_member_eval(
 
 @router.get("/tabmin-member/my-evaluations")
 def get_my_tabmin_evaluations(user: dict = Depends(get_current_user)):
-    """Allows current evaluator (PJK, HRD, or Peer) to see only their submitted ratings."""
+    """Shared progress for PJK/HRD; individual progress for Peer evaluators."""
     evaluator_name = user.get("full_name") or user.get("username")
+    role = user.get("role")
+    is_shared = role in ["hrd_kelompok", "hrd_kelompok_ketua", "hrd_kepala", "hrd_profesi", "hrd_all", "teknisi", "pjk"]
+    shared_name = "shared_hrd_tabmin_member" if is_shared and role != "pjk" else "shared_pjk_tabmin_member"
     if user.get("role") == "peserta":
         group = user.get("assigned_group")
         if not group or group == "ALL":
@@ -276,13 +306,22 @@ def get_my_tabmin_evaluations(user: dict = Depends(get_current_user)):
     
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        if is_shared:
+            cursor.execute("""
             SELECT e.*, p.name as participant_name, p.tabmin_group, p.profession
             FROM tabmin_member_evaluations e
             JOIN participants p ON e.participant_id = p.id
             WHERE e.evaluator_name = ?
             ORDER BY p.name
-        """, (evaluator_name,))
+            """, (shared_name,))
+        else:
+            cursor.execute("""
+            SELECT e.*, p.name as participant_name, p.tabmin_group, p.profession
+            FROM tabmin_member_evaluations e
+            JOIN participants p ON e.participant_id = p.id
+            WHERE e.evaluator_name = ?
+            ORDER BY p.name
+            """, (evaluator_name,))
         rows = cursor.fetchall()
         if user.get("role") == "hrd_all":
             rows = [
@@ -303,7 +342,7 @@ def save_tabmin_product_eval(
     user: dict = Depends(require_roles(["hrd_kelompok", "hrd_kelompok_ketua", "hrd_kepala", "hrd_all", "teknisi"]))
 ):
     role = user.get("role")
-    evaluator_name = user.get("full_name") or user.get("username")
+    evaluator_name = "shared_hrd_tabmin_product"
     evaluator_id = user.get("id") if isinstance(user.get("id"), int) else None
 
     # HRD Kelompok isolation: can only rate their assigned group's product
@@ -351,6 +390,73 @@ def get_tabmin_product_evals(user: dict = Depends(get_current_user)):
             tot = (r["score_reporter"] + r["score_fotografer"] + r["score_ilustrator"] + r["score_layouter"] + r["score_marcomm"]) / 5.0
             r["score_total"] = round(tot, 2)
         return {"products": rows}
+
+# --- 2b. Collective Tabmin Evaluation by Wali Kelas ---
+@router.post("/tabmin-collective")
+def save_tabmin_collective_eval(
+    data: TabminCollectiveEvalInput,
+    user: dict = Depends(get_current_user)
+):
+    role = user.get("role")
+    if role not in ["wali_kelas", "teknisi", "hrd_kepala", "hrd_all"]:
+        raise HTTPException(status_code=403, detail="Hanya Wali Kelas atau HRD yang berwenang mengisi penilaian Tabmin kolektif.")
+
+    valid_professions = ["Ilustrator", "Fotografer", "Layouter", "Marcomm", "Reporter"]
+    if data.profession not in valid_professions:
+        raise HTTPException(status_code=400, detail="Profesi Tabmin tidak valid.")
+
+    assigned_profession = user.get("assigned_profession")
+    if role == "wali_kelas" and assigned_profession not in [None, "ALL", ""] and assigned_profession != data.profession:
+        raise HTTPException(status_code=403, detail=f"Wali Kelas hanya dapat menilai profesi {assigned_profession}.")
+
+    evaluator_name = "shared_wali_tabmin_collective"
+    evaluator_id = user.get("id") if isinstance(user.get("id"), int) else None
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO tabmin_collective_evaluations
+            (tabmin_session, tabmin_group, profession, score_overall, notes, evaluator_id, evaluator_name, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(tabmin_session, profession) DO UPDATE SET
+                tabmin_group = excluded.tabmin_group,
+                score_overall = excluded.score_overall,
+                notes = excluded.notes,
+                evaluator_id = excluded.evaluator_id,
+                evaluator_name = excluded.evaluator_name,
+                updated_at = CURRENT_TIMESTAMP
+        """, (data.tabmin_session, data.tabmin_group, data.profession,
+              data.score_overall, data.notes, evaluator_id, evaluator_name))
+        return {
+            "success": True,
+            "message": f"Penilaian kolektif Tabmin {data.tabmin_session} untuk {data.profession} berhasil disimpan."
+        }
+
+@router.get("/tabmin-collective")
+def get_tabmin_collective_evals(
+    session: Optional[int] = None,
+    user: dict = Depends(get_current_user)
+):
+    role = user.get("role")
+    if role not in ["wali_kelas", "teknisi", "hrd_kepala", "hrd_all", "kepala_sekolah", "wakil_kepala", "supervisor"]:
+        raise HTTPException(status_code=403, detail="Akses ditolak untuk penilaian Tabmin kolektif.")
+
+    assigned_profession = user.get("assigned_profession")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if session is not None:
+            cursor.execute(
+                "SELECT * FROM tabmin_collective_evaluations WHERE tabmin_session = ? ORDER BY profession",
+                (session,)
+            )
+        else:
+            cursor.execute(
+                "SELECT * FROM tabmin_collective_evaluations ORDER BY tabmin_session, profession"
+            )
+        rows = cursor.fetchall()
+        if role == "wali_kelas" and assigned_profession not in [None, "ALL", ""]:
+            rows = [row for row in rows if row["profession"] == assigned_profession]
+        return {"evaluations": rows}
 
 # --- 3. Kelas Profesi General Evaluation (HRD Profesi) ---
 @router.post("/profesi-general")

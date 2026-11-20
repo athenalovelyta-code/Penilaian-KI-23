@@ -12,9 +12,11 @@ const FormTabmin = {
 
   // Member scores
   memberScores: {
-    kehadiran: 5,
-    partisipasi: 5,
-    sikap: 5,
+    komitmen_kedisiplinan: 0,
+    kerjasama_kolaborasi: 0,
+    inisiatif_keaktifan: 0,
+    tanggung_jawab_individu: 0,
+    sikap_evaluasi: 0,
     notes: ''
   },
 
@@ -61,9 +63,11 @@ const FormTabmin = {
 
   async loadMemberScore(participantId) {
     this.memberScores = {
-      kehadiran: 5,
-      partisipasi: 5,
-      sikap: 5,
+      komitmen_kedisiplinan: 0,
+      kerjasama_kolaborasi: 0,
+      inisiatif_keaktifan: 0,
+      tanggung_jawab_individu: 0,
+      sikap_evaluasi: 0,
       notes: ''
     };
 
@@ -83,9 +87,11 @@ const FormTabmin = {
 
       if (evaluation) {
         this.memberScores = {
-          kehadiran: evaluation.score_kehadiran,
-          partisipasi: evaluation.score_partisipasi,
-          sikap: evaluation.score_sikap,
+          komitmen_kedisiplinan: evaluation.score_komitmen_kedisiplinan ?? 0,
+          kerjasama_kolaborasi: evaluation.score_kerjasama_kolaborasi ?? 0,
+          inisiatif_keaktifan: evaluation.score_inisiatif_keaktifan ?? 0,
+          tanggung_jawab_individu: evaluation.score_tanggung_jawab_individu ?? 0,
+          sikap_evaluasi: evaluation.score_sikap_evaluasi ?? 0,
           notes: evaluation.notes || ''
         };
       }
@@ -228,44 +234,11 @@ const FormTabmin = {
               </span>
             </div>
 
-            <!-- 1. Kehadiran -->
-            <div class="likert-group">
-              <div class="likert-label">Kehadiran & Ketepatan Waktu</div>
-              <div class="likert-desc">Kedisiplinan hadir di seluruh rangkaian forum dan agenda kelompok Tabmin.</div>
-              <div class="likert-options">
-                ${this.renderLikertBtn('kehadiran', 1, 'Terlambat >15m')}
-                ${this.renderLikertBtn('kehadiran', 2, 'Terlambat 10-15m')}
-                ${this.renderLikertBtn('kehadiran', 3, 'Terlambat 5-10m')}
-                ${this.renderLikertBtn('kehadiran', 4, 'Tepat waktu')}
-                ${this.renderLikertBtn('kehadiran', 5, 'Tepat waktu & siap')}
-              </div>
-            </div>
-
-            <!-- 2. Partisipasi -->
-            <div class="likert-group">
-              <div class="likert-label">Partisipasi & Keaktifan Kelompok</div>
-              <div class="likert-desc">Kontribusi ide, proaktif dalam tugas kelompok, dan kerjasama tim.</div>
-              <div class="likert-options">
-                ${this.renderLikertBtn('partisipasi', 1, 'Pasif total')}
-                ${this.renderLikertBtn('partisipasi', 2, 'Kurang aktif')}
-                ${this.renderLikertBtn('partisipasi', 3, 'Cukup aktif')}
-                ${this.renderLikertBtn('partisipasi', 4, 'Aktif & kooperatif')}
-                ${this.renderLikertBtn('partisipasi', 5, 'Sangat solutif & inisiatif')}
-              </div>
-            </div>
-
-            <!-- 3. Sikap -->
-            <div class="likert-group">
-              <div class="likert-label">Sikap & Kedisiplinan</div>
-              <div class="likert-desc">Sopan santun, tanggung jawab, dan komunikasi yang membangun antar sesama anggota.</div>
-              <div class="likert-options">
-                ${this.renderLikertBtn('sikap', 1, 'Tidak kondusif')}
-                ${this.renderLikertBtn('sikap', 2, 'Kurang disiplin')}
-                ${this.renderLikertBtn('sikap', 3, 'Cukup tertib')}
-                ${this.renderLikertBtn('sikap', 4, 'Tertib & sopan')}
-                ${this.renderLikertBtn('sikap', 5, 'Sangat teladan & suportif')}
-              </div>
-            </div>
+            ${this.renderIndividualLikert('komitmen_kedisiplinan', 'Komitmen dan Kedisiplinan', '25%', 'Ketepatan, konsistensi, dan komitmen mengikuti rangkaian Tabmin.')}
+            ${this.renderIndividualLikert('kerjasama_kolaborasi', 'Kerjasama dan Kolaborasi', '25%', 'Kemampuan bekerja sama, berkomunikasi, dan mendukung anggota lain.')}
+            ${this.renderIndividualLikert('inisiatif_keaktifan', 'Inisiatif dan Keaktifan', '20%', 'Keaktifan, proaktivitas, dan sumbangan ide selama Tabmin.')}
+            ${this.renderIndividualLikert('tanggung_jawab_individu', 'Tanggung Jawab', '20%', 'Pertanggungjawaban atas tugas pribadi dan penyelesaian kewajiban.')}
+            ${this.renderIndividualLikert('sikap_evaluasi', 'Sikap terhadap Evaluasi', '10%', 'Respon terhadap masukan, keterbukaan, dan kemauan memperbaiki diri.')}
 
             <!-- Catatan -->
             <div style="margin-bottom: 24px;">
@@ -360,6 +333,25 @@ const FormTabmin = {
     `;
   },
 
+  renderIndividualLikert(category, title, weight, description) {
+    const labels = ['Tidak berlaku', 'Sangat kurang', 'Kurang', 'Cukup', 'Baik', 'Istimewa'];
+    return `
+      <div class="likert-group">
+        <div class="likert-label">${title} <span class="badge badge-warning" style="margin-left:6px;">${weight}</span></div>
+        <div class="likert-desc">${description}</div>
+        <div class="likert-options">
+          ${[0, 1, 2, 3, 4, 5].map(v => `
+            <div class="likert-btn ${this.memberScores[category] === v ? 'selected' : ''}"
+                 onclick="FormTabmin.setMemberScore('${category}', ${v})">
+              <span class="likert-num">${v}</span>
+              <span class="likert-text">${labels[v]}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  },
+
   renderProductLikert(aspect) {
     return [1, 2, 3, 4, 5].map(v => {
       const isSelected = this.productScores[aspect] === v;
@@ -431,9 +423,14 @@ const FormTabmin = {
     try {
       await API.post('/api/eval/tabmin-member', {
         participant_id: participantId,
-        score_kehadiran: scores.kehadiran,
-        score_partisipasi: scores.partisipasi,
-        score_sikap: scores.sikap,
+        score_kehadiran: 5,
+        score_partisipasi: 5,
+        score_sikap: 5,
+        score_komitmen_kedisiplinan: scores.komitmen_kedisiplinan,
+        score_kerjasama_kolaborasi: scores.kerjasama_kolaborasi,
+        score_inisiatif_keaktifan: scores.inisiatif_keaktifan,
+        score_tanggung_jawab_individu: scores.tanggung_jawab_individu,
+        score_sikap_evaluasi: scores.sikap_evaluasi,
         notes: scores.notes
       });
       showToast('Penilaian Anggota Tabmin berhasil disimpan!', 'success');

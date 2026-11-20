@@ -6,6 +6,12 @@
 
 const FormWali = {
   selectedSession: 1,
+  selectedTab: 'profesi',
+  selectedCollectiveProfession: null,
+  collectiveEvaluations: [],
+  collectiveScore: 5,
+  collectiveNotes: '',
+  collectiveSessions: [1, 2, 3, 4, 5, 6],
   selectedParticipantId: null,
   tasks: [],
   searchQuery: '',
@@ -17,8 +23,32 @@ const FormWali = {
   notesRep: '',
 
   async init() {
-    await this.loadTasks();
+    await Promise.all([this.loadTasks(), this.loadCollective()]);
     this.render();
+  },
+
+  async loadCollective() {
+    try {
+      const res = await API.get(`/api/eval/tabmin-collective?session=${this.selectedSession}`);
+      this.collectiveEvaluations = res.evaluations || [];
+      const user = App.currentUser || {};
+      const professions = ['Reporter', 'Fotografer', 'Layouter', 'Marcomm', 'Ilustrator'];
+      this.selectedCollectiveProfession =
+        user.assigned_profession && user.assigned_profession !== 'ALL'
+          ? user.assigned_profession
+          : (this.selectedCollectiveProfession || professions[0]);
+      this.syncCollective();
+    } catch (err) {
+      console.error(err);
+    }
+  },
+
+  syncCollective() {
+    const found = this.collectiveEvaluations.find(e =>
+      e.profession === this.selectedCollectiveProfession
+    );
+    this.collectiveScore = found ? found.score_overall : 5;
+    this.collectiveNotes = found ? (found.notes || '') : '';
   },
 
   async loadTasks() {
@@ -82,19 +112,34 @@ const FormWali = {
           </div>
           
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <div style="display:flex; gap:6px;">
+              <button class="btn ${this.selectedTab === 'profesi' ? 'btn-primary' : 'btn-secondary'}" onclick="FormWali.setTab('profesi')">
+                <i class="fas fa-graduation-cap"></i> Keprofesian
+              </button>
+              <button class="btn ${this.selectedTab === 'tabmin' ? 'btn-primary' : 'btn-secondary'}" onclick="FormWali.setTab('tabmin')">
+                <i class="fas fa-users"></i> Tabmin Kolektif
+              </button>
+            </div>
             <!-- Session Switcher (Keprof 1 vs 2) -->
             <div style="display: flex; gap: 6px;">
-              <button class="btn ${this.selectedSession === 1 ? 'btn-primary' : 'btn-secondary'}" onclick="FormWali.setSession(1)">
-                <i class="fas fa-book-open"></i> Keprof 1
-              </button>
-              <button class="btn ${this.selectedSession === 2 ? 'btn-primary' : 'btn-secondary'}" onclick="FormWali.setSession(2)">
-                <i class="fas fa-book-open"></i> Keprof 2
-              </button>
+              ${this.selectedTab === 'profesi' ? `
+                <button class="btn ${this.selectedSession === 1 ? 'btn-primary' : 'btn-secondary'}" onclick="FormWali.setSession(1)">
+                  <i class="fas fa-book-open"></i> Keprof 1
+                </button>
+                <button class="btn ${this.selectedSession === 2 ? 'btn-primary' : 'btn-secondary'}" onclick="FormWali.setSession(2)">
+                  <i class="fas fa-book-open"></i> Keprof 2
+                </button>
+              ` : `
+                ${this.collectiveSessions.map(n => `
+                  <button class="btn ${this.selectedSession === n ? 'btn-primary' : 'btn-secondary'}" onclick="FormWali.setSession(${n})">Tabmin ${n}</button>
+                `).join('')}
+              `}
             </div>
           </div>
         </div>
       </div>
 
+      ${this.selectedTab === 'tabmin' ? this.renderCollectiveView() : `
       <div style="display: grid; grid-template-columns: 320px 1fr; gap: 24px;">
         <!-- Left: Participant List (Strictly Isolated by Profession) -->
         <div class="glass-card" style="height: fit-content;">
@@ -326,7 +371,93 @@ const FormWali = {
           ` : '<div style="color: var(--text-dim); text-align: center; padding: 40px;">Pilih peserta di panel kiri.</div>'}
         </div>
       </div>
+      `}
     `;
+  },
+
+  renderCollectiveView() {
+    const user = App.currentUser || {};
+    const allProfessions = ['Reporter', 'Fotografer', 'Layouter', 'Marcomm', 'Ilustrator'];
+    const professions = user.assigned_profession && user.assigned_profession !== 'ALL'
+      ? [user.assigned_profession]
+      : allProfessions;
+    if (!professions.includes(this.selectedCollectiveProfession)) {
+      this.selectedCollectiveProfession = professions[0];
+      this.syncCollective();
+    }
+
+    return `
+      <div class="glass-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+          <div>
+            <span class="badge badge-group">Tabmin ${this.selectedSession}</span>
+            <h3 style="margin-top:6px; color:white;">Penilaian Tabmin Keseluruhan</h3>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            ${professions.map(prof => `
+              <button class="btn ${this.selectedCollectiveProfession === prof ? 'btn-primary' : 'btn-secondary'}"
+                      onclick="FormWali.setCollectiveProfession('${prof}')">${prof}</button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="likert-group">
+          <div class="likert-label">Penilaian Kolektif — ${this.selectedCollectiveProfession}</div>
+          <div class="likert-desc">Penilaian keseluruhan divisi pada Tabmin ${this.selectedSession}. Skala 0–5 dan dapat dilanjutkan oleh Wali Kelas lain pada divisi yang sama.</div>
+          <div class="likert-options">
+            ${[0,1,2,3,4,5].map(v => `
+              <div class="likert-btn ${this.collectiveScore === v ? 'selected' : ''}" onclick="FormWali.setCollectiveScore(${v})">
+                <span class="likert-num">${v}</span>
+                <span class="likert-text">${['Tidak dinilai','Sangat kurang','Kurang','Cukup','Baik','Istimewa'][v]}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <div style="margin-bottom:24px;">
+          <label style="font-weight:600; color:white; display:block; margin-bottom:6px;">Catatan Kolektif</label>
+          <textarea class="search-input" style="width:100%; height:90px; resize:vertical;" oninput="FormWali.collectiveNotes=this.value">${this.collectiveNotes}</textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%; padding:14px;" onclick="FormWali.submitCollective()">
+          <i class="fas fa-save"></i> Simpan Tabmin ${this.selectedSession} — ${this.selectedCollectiveProfession}
+        </button>
+      </div>
+    `;
+  },
+
+  setTab(tab) {
+    this.selectedTab = tab;
+    if (tab === 'tabmin') {
+      this.loadCollective().then(() => this.render());
+    } else {
+      this.render();
+    }
+  },
+
+  setCollectiveProfession(profession) {
+    this.selectedCollectiveProfession = profession;
+    this.syncCollective();
+    this.render();
+  },
+
+  setCollectiveScore(score) {
+    this.collectiveScore = score;
+    this.render();
+  },
+
+  async submitCollective() {
+    try {
+      await API.post('/api/eval/tabmin-collective', {
+        tabmin_session: this.selectedSession,
+        profession: this.selectedCollectiveProfession,
+        tabmin_group: null,
+        score_overall: this.collectiveScore,
+        notes: this.collectiveNotes
+      });
+      await this.loadCollective();
+      showToast(`Penilaian kolektif Tabmin ${this.selectedSession} berhasil disimpan!`, 'success');
+      this.render();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   },
 
   renderLikertBtn(targetType, val, label) {
@@ -351,7 +482,7 @@ const FormWali = {
 
   setSession(s) {
     this.selectedSession = s;
-    this.loadTasks().then(() => this.render());
+    Promise.all([this.loadTasks(), this.loadCollective()]).then(() => this.render());
   },
 
   onSearch(val) {
